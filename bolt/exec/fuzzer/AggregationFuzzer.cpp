@@ -713,6 +713,7 @@ bool AggregationFuzzer::verifyWindow(
     if (!reproPersistPath_.empty()) {
       persistReproInfo({{plan, {}}}, reproPersistPath_);
     }
+    return true;
   }
 }
 
@@ -1110,6 +1111,7 @@ bool AggregationFuzzer::compareEquivalentPlanResults(
     if (!reproPersistPath_.empty()) {
       persistReproInfo(plans, reproPersistPath_);
     }
+    return true;
   }
 }
 

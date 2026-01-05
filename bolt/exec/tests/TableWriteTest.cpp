@@ -80,6 +80,8 @@ std::string testModeString(TestMode mode) {
       return "BUCKETED";
     case TestMode::kOnlyBucketed:
       return "BUCKETED (NOT PARTITIONED)";
+    default:
+      return "UNKNOWN";
   }
 }
 

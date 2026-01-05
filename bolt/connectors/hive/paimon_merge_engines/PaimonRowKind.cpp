@@ -27,6 +27,8 @@ const char* toString(PaimonRowKind rowKind) {
       return "+U";
     case PaimonRowKind::DELETE:
       return "-D";
+    default:
+      return "UNKNOWN_ROW_KIND";
   }
 }
 

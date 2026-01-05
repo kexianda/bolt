@@ -274,6 +274,7 @@ std::shared_ptr<PaimonEngine> PaimonSplitReader::getMergeEngine() {
       return std::make_shared<PartialUpdateEngine>(
           ignoreDelete_, aggregations_, sequenceGroups_);
     case PaimonMergeEngineType::FirstRow:
+    default:
       throw std::runtime_error("FirstRow engine is shouldn't come here.");
   }
 }

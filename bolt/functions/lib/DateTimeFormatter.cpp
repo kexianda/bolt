@@ -594,6 +594,8 @@ std::string getSpecifierName(DateTimeFormatSpecifier s) {
       return "WEEK_OF_MONTH";
     case DateTimeFormatSpecifier::DAY_OF_WEEK_IN_MONTH:
       return "DAY_OF_WEEK_IN_MONTH";
+    default:
+      return "UNKNOWN_SPECIFIER";
   }
 }
 

@@ -511,7 +511,7 @@ if("${ENABLE_ALL_WARNINGS}")
          -Wno-type-limits \
          -Wno-stringop-overflow \
          -Wno-stringop-overread \
-         -Wno-return-type")
+        ")
   endif()
 
   set(KNOWN_WARNINGS

@@ -25,10 +25,8 @@
 # This modified file is released under the same license.
 # --------------------------------------------------------------------------
 
-
-add_library(bolt_hdfs RegisterHdfsFileSystem.cpp)
-
 if(BOLT_ENABLE_HDFS)
+  add_library(bolt_hdfs RegisterHdfsFileSystem.cpp)
   target_sources(bolt_hdfs PRIVATE HdfsFileSystem.cpp HdfsReadFile.cpp
                                     HdfsWriteFile.cpp StorageException.cpp)
 

@@ -70,4 +70,4 @@ target_link_libraries(bolt_dwio_native_parquet_reader_cli
         bolt_dwio_arrow_parquet_writer_lib
         bolt_dwio_native_parquet_reader
         bolt_dwio_common
-        bolt_hdfs)
+        $<$<TARGET_EXISTS:bolt_hdfs>:bolt_hdfs>)

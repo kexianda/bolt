@@ -8328,4 +8328,90 @@ TEST_F(HashJoinTest, wrapLazyVectorInFilterAndOutput) {
       .run();
 }
 
+
+
+DEBUG_ONLY_TEST_F(HashJoinTest, myHashJoin) {
+  std::vector<std::string> strCol;
+  constexpr size_t batch_size = 10000;
+
+  for (auto i = 0; i < batch_size; ++i) {
+    strCol.emplace_back(3, (char)(('a' + i) % 128));
+  }
+
+  std::vector<std::vector<std::pair<int32_t, std::optional<StringView>>>>
+      mapColData;
+  for (auto i = 0; i < batch_size; ++i) {
+    mapColData.push_back({{1, "str1000"}, {2, "str2000"}});
+  }
+
+  auto makeBatch = [this, &strCol, &mapColData](int32_t batchNum) {
+    return makeRowVector({
+        makeFlatVector<int64_t>(
+            batch_size,
+            [](vector_size_t row) { return static_cast<int64_t>(row); },
+            nullptr),
+        makeFlatVector<StringView>(
+            batch_size,
+            [&strCol](vector_size_t row) { return StringView(strCol[row]); },
+            nullptr),
+        makeMapVector<int32_t, StringView>(mapColData),
+    });
+  };
+
+  std::vector<RowVectorPtr> build_data{
+      makeBatch(0), makeBatch(1), makeBatch(2)};
+  std::vector<RowVectorPtr> probe_data{
+      makeBatch(0), makeBatch(1), makeBatch(2)};
+
+  createDuckDbTable("build", build_data);
+  createDuckDbTable("probe", probe_data);
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .values(probe_data)
+                  .project({"c0 AS t0", "c1 AS t1", "c2 AS t2"})
+                  .hashJoin(
+                      {"t0", "t1"},
+                      {"u0", "u1"},
+                      PlanBuilder(planNodeIdGenerator)
+                          .values(build_data)
+                          .project({"c0 AS u0", "c1 AS u1", "c2 AS u2"})
+                          .planNode(),
+                      "",
+                      {"t0", "t1", "t2", "u2"},
+                      core::JoinType::kInner)
+                  .planNode();
+  std::string duckDbSql = R"sql(
+      SELECT
+        t0, t1, t2, u2
+      FROM 
+          (SELECT c0 AS t0, c1 AS t1, c2 AS t2 FROM probe ) as t
+        JOIN  
+          (SELECT c0 AS u0, c1 AS u1, c2 AS u2 FROM build ) as u
+        ON t.t0 == u.u0 and t.t1 == u.u1
+      )sql";
+
+  auto spillDirectory = exec::test::TempDirectoryPath::create();
+  auto memoryManager = createMemoryManager(512 << 20, 0, 0, 0);
+  std::shared_ptr<core::QueryCtx> queryCtx =
+      newQueryCtx(memoryManager.get(), executor_.get(), kMemoryCapacity);
+
+  queryCtx->testingOverrideConfigUnsafe({
+      {core::QueryConfig::kTestingSpillPct, "100"},
+      {core::QueryConfig::kSpillEnabled, "true"},
+      {core::QueryConfig::kHashAdaptivityEnabled, "false"},
+      {core::QueryConfig::kOrderBySpillEnabled, "true"},
+      {core::QueryConfig::kAggregationSpillEnabled, "true"},
+      {core::QueryConfig::kJoinSpillEnabled, "true"},
+      {core::QueryConfig::kAggregationSpillEnabled, "true"},
+      {core::QueryConfig::kJoinSpillMemoryThreshold, "1"},
+  });
+  CursorParameters params;
+  params.planNode = plan;
+  params.queryCtx = queryCtx;
+  params.spillDirectory = spillDirectory->path;
+  auto task = assertQuery(params, duckDbSql);
+}
+
+
 } // namespace

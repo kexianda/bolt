@@ -480,5 +480,77 @@ TEST_F(SimpleCountNullsAggregationTest, basic) {
   testAggregations({vectors}, {}, {"simple_count_nulls(c2)"}, {expected});
 }
 
+
+// Just for debugging
+class MyAggregationTest : public AggregationTestBase {};
+
+TEST_F(MyAggregationTest, singleKey) {
+  vector_size_t batchSize = 32;
+  std::vector<RowVectorPtr> vectors;
+  for (int32_t i = 0; i < 2; ++i) {
+    auto c0 = makeFlatVector<int64_t>(
+        batchSize, [](vector_size_t row) { return row % 4; }, nullptr);
+    auto c1 = makeFlatVector<int32_t>(
+        batchSize, [](vector_size_t row) { return row + 10; }, nullptr); //
+    auto c2 = makeFlatVector<double>(
+        batchSize,
+        [](vector_size_t row) { return row * 0.1; },
+        nullEvery(11)); //
+    vectors.emplace_back(makeRowVector({c0, c1, c2}));
+  }
+  createDuckDbTable(vectors);
+
+  std::string duckSql = "SELECT c0, AVG(c1), SUM(c2) FROM tmp GROUP BY c0, c1 ";
+  std::unordered_map<std::string, std::string> config{
+      {core::QueryConfig::kTestingSpillPct, "100"},
+      {core::QueryConfig::kSpillEnabled, "true"},
+      {core::QueryConfig::kAggregationSpillEnabled, "true"},
+      {core::QueryConfig::kJoinSpillEnabled, "true"},
+      {core::QueryConfig::kBoltJitEnabled, "true"},
+  };
+  testAggregations(vectors, {"c0"}, {"avg(c1)", "sum(c2)"}, duckSql, config, false);
+}
+
+TEST_F(MyAggregationTest, multiKeys) {
+  constexpr vector_size_t batchSize = 4;
+  std::vector<std::string> rawStrs;
+
+  for (auto i = 0; i < batchSize; ++i) {
+    rawStrs.emplace_back(std::to_string(i % 4) + "ssssssssssss");
+  }
+
+  std::vector<RowVectorPtr> vectors;
+  for (int32_t i = 0; i < 2; ++i) {
+    auto c0 = makeFlatVector<int64_t>(
+        batchSize, [](vector_size_t row) { return row % 4; }, nullptr);
+    auto c1 = makeFlatVector<StringView>(
+        batchSize,
+        [&rawStrs](vector_size_t row) { return StringView(rawStrs[row]); },
+        nullptr);
+    auto c2 = makeFlatVector<double>(
+        batchSize,
+        [](vector_size_t row) { return row * 0.1; },
+        nullEvery(5)); //
+    auto c3 = makeFlatVector<StringView>(
+        batchSize,
+        [&](vector_size_t row) { return StringView(rawStrs[row]); },
+        nullEvery(5)); //
+    vectors.emplace_back(makeRowVector({c0, c1, c2, c3}));
+  }
+  createDuckDbTable(vectors);
+
+  std::string duckSql =
+      "SELECT c0, c1, avg(c2), MAX(c3) FROM tmp GROUP BY c0, c1 ";
+  std::unordered_map<std::string, std::string> config{
+      {core::QueryConfig::kTestingSpillPct, "100"},
+      {core::QueryConfig::kSpillEnabled, "true"},
+      {core::QueryConfig::kAggregationSpillEnabled, "true"},
+      {core::QueryConfig::kJoinSpillEnabled, "true"},
+      {core::QueryConfig::kBoltJitEnabled, "true"},
+  };
+  testAggregations(
+      vectors, {"c0", "c1"}, {"avg(c2)", "max(c3)"}, duckSql, config, false);
+}
+
 } // namespace
 } // namespace bytedance::bolt::aggregate::test

@@ -140,17 +140,22 @@ To maintain consistent code quality and style, please run the following checks b
 
 ### Formatting (clang-format)
 
-The repository includes a `.clang-format` file and enforces formatting checks in CI.
+Bolt uses [pre-commit](https://pre-commit.com/) to manage all git hooks, so clang-format checks/formatting can also be done within `pre-commit`.
+
+If you have executed `scripts/setup-dev-env.sh`, then `pre-commit` and all the pre-defined git hooks are already installed. When you commit code using `git commit ...`, clang-format will be executed automatically, you only need to `git add ...` the formatted file again.
+
+By the way, you can execute `pre-commit install` to install all git hooks manually.
+
+You also can use below command to format manually, but please ensure clang-format version is equal to `14.0.6`. Different version clang-format may has different default behavior.
 
 ```Bash
 # Run the format check (same as in CI)
 make clang-format-check
-# Apply fix for all files
-make clang-format
-# Apply fix for modified files
-make clang-format-modified
-# Apply fixes locally (on a single file or in batch)
+
+# format on a single file
 clang-format -i -style=file path/to/your/file.cpp
+
+# format all files in batch
 find bolt -name "*.h" -o -name "*.cpp" | xargs clang-format -i -style=file
 ```
 

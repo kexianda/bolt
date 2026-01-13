@@ -210,40 +210,13 @@ all: 			#: Build the release version
 clean:					#: Delete all build artifacts
 	rm -rf $(BUILD_BASE_DIR) && rm -rf CMakeUserPresets.json && rm -rf $(BENCHMARKS_BASIC_DIR)
 
+# only used in CI
 clang-format-check:
 	find bolt \( -name "*.cpp" -o -name "*.h" \) -type f > files.txt
 	cat files.txt | xargs -I{} -P $(CPU_CORES) clang-format -style=file --dry-run {} > log.txt 2>&1
 	cat log.txt && echo -e "You can use clang-format -i -style=file path_to_file command to format file"
 	if grep -q 'warning' log.txt; then false; fi
 	@rm -f files.txt log.txt
-
-clang-format:
-	find bolt \( -name "*.cpp" -o -name "*.h" \) -type f | xargs -P $(CPU_CORES) -n 10 clang-format -i -style=file
-
-clang-format-modified:
-	@ (git diff --name-only --diff-filter=ACMR HEAD bolt; \
-	   git ls-files --others --exclude-standard bolt) \
-	| grep -E "\.(cpp|h)$$" | sort | uniq > modified_files.txt || true
-	@if [ -s modified_files.txt ]; then \
-		cat modified_files.txt | xargs -P $(CPU_CORES) clang-format -i -style=file; \
-		echo "✅ Formatted the following modified files:"; \
-		cat modified_files.txt; \
-	else \
-		echo "💤 No modified .cpp/.h files found."; \
-	fi
-	@rm -f modified_files.txt
-
-clang-format-branch:
-	@echo "Formatting changes against main..."
-	@git diff --name-only --diff-filter=ACMR origin/main...HEAD bolt \
-	| grep -E "\.(cpp|h)$$" > branch_files.txt || true
-	@if [ -s branch_files.txt ]; then \
-		cat branch_files.txt | xargs -P $(CPU_CORES) clang-format -i -style=file; \
-		echo "✅ Formatted files changed in this branch."; \
-	else \
-		echo "💤 No changed .cpp/.h files found against main."; \
-	fi
-	@rm -f branch_files.txt
 
 conan_build:
 	if [ ! -d "_build" ]; then \

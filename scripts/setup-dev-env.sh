@@ -95,10 +95,29 @@ function check_conan() {
     sed -i 's/gnu14/gnu17/g' ${CONAN_HOME}/profiles/default
 }
 
+function install_git_hooks() {
+    # ensure pre-commit has been installed
+    if ! command -v "pre-commit" >/dev/null 2>&1; then
+        echo "❌ Expect pre-commit has been installed"
+        return 1
+    fi
+    # install hooks
+    cd "${CUR_DIR}/../"
+    if [ -f ".pre-commit-config.yaml" ]; then
+        pre-commit install
+        echo "✅ Installing all git hooks successfully"
+        return 0
+    fi
+    # error handling
+    echo "❌ Expect .pre-commit-config.yaml exists in path ${CUR_DIR}/../"
+    return 1
+}
+
 check_basic_tools
 check_compiler
 install_python_dep
 check_conan
+install_git_hooks
 
 install_bolt_deps_script="${CUR_DIR}/install-bolt-deps.sh"
 bash "${install_bolt_deps_script}" "$@"

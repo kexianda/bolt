@@ -218,6 +218,11 @@ class ThrustJIT {
     return jit_memory_usage_limit_;
   }
 
+  // for ut
+  LRUCache<std::string, CompiledModuleSP, CacheEvictPred>& GetCache() {
+    return lruCache_;
+  }
+
  private:
   llvm::Expected<llvm::orc::ThreadSafeModule> optimizeModule(
       llvm::orc::ThreadSafeModule TSM,

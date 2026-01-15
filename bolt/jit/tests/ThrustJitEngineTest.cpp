@@ -180,6 +180,7 @@ TEST_F(JitEngineTest, cacheLimit) {
     )IR";
 
   constexpr size_t LIMIT = 1024;
+  jit->GetCache().clear();
   jit->SetMemoryLimit(LIMIT);
 
   for (auto i = 0; i < 16; ++i) {
@@ -193,6 +194,7 @@ TEST_F(JitEngineTest, cacheLimit) {
       ASSERT_TRUE(!err);
     });
 
+    // 768 bytes
     CompiledModuleSP mod = jit->CompileModule(std::move(tsm));
 
     typedef int64_t (*FuncProto)(int64_t, int64_t);

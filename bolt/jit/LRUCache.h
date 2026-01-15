@@ -33,8 +33,8 @@
 #pragma once
 
 #include <list>
-#include <map>
 #include <optional>
+#include <unordered_map>
 
 namespace bytedance::bolt::jit {
 
@@ -45,8 +45,9 @@ class LRUCache {
   using key_type = Key;
   using value_type = Value;
   using list_type = std::list<key_type>;
-  using map_type =
-      std::map<key_type, std::pair<value_type, typename list_type::iterator>>;
+  using map_type = std::unordered_map<
+      key_type,
+      std::pair<value_type, typename list_type::iterator>>;
 
   LRUCache() = default;
   ~LRUCache() = default;
@@ -68,7 +69,7 @@ class LRUCache {
     if (i == map_.end()) {
       // insert item into the cache, but first check if it is full
 
-      if (evictPolicy_()) {
+      while (evictPolicy_()) {
         // cache is full, evict the least recently used item
         evict();
       }
@@ -102,11 +103,11 @@ class LRUCache {
 
       // return the value
       return value;
-    } else {
-      // the item is already at the front of the most recently
-      // used list so just return it
-      return i->second.first;
     }
+
+    // the item is already at the front of the most recently
+    // used list so just return it
+    return i->second.first;
   }
 
   void clear() {
@@ -122,7 +123,6 @@ class LRUCache {
     list_.erase(i);
   }
 
- private:
   map_type map_;
   list_type list_;
   EvictPolicy evictPolicy_;

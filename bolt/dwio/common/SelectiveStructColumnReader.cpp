@@ -439,68 +439,68 @@ void SelectiveStructColumnReaderBase::getValues(
   }
   resultRow->updateContainsLazyNotLoaded();
 
-  if UNLIKELY (fileType_->isDCMap()) {
-    // In case of DCMap,
-    // a new combined map will be constructed
-    // all mapKV will be copied to resultVector.
-    auto dcKeys = fileType_->getDcKeys();
+  // if UNLIKELY (fileType_->isDCMap()) {
+  //   // In case of DCMap,
+  //   // a new combined map will be constructed
+  //   // all mapKV will be copied to resultVector.
+  //   auto dcKeys = fileType_->getDcKeys();
 
-    if (!dcKeys.empty() &&
-        dcKeys.find(scanSpec_->fieldName()) != dcKeys.end()) {
-      auto oldMap = resultRow->childAt(0)->as<MapVector>();
-      auto oldRow = resultRow->childAt(1)->as<RowVector>();
-      auto keys = dcKeys[scanSpec_->fieldName()];
-      BOLT_CHECK_EQ(oldRow->childrenSize(), keys.size());
+  //   if (!dcKeys.empty() &&
+  //       dcKeys.find(scanSpec_->fieldName()) != dcKeys.end()) {
+  //     auto oldMap = resultRow->childAt(0)->as<MapVector>();
+  //     auto oldRow = resultRow->childAt(1)->as<RowVector>();
+  //     auto keys = dcKeys[scanSpec_->fieldName()];
+  //     BOLT_CHECK_EQ(oldRow->childrenSize(), keys.size());
 
-      std::vector<std::vector<std::pair<StringView, std::optional<StringView>>>>
-          combinedMap(resultRow->size());
+  //     std::vector<std::vector<std::pair<StringView, std::optional<StringView>>>>
+  //         combinedMap(resultRow->size());
 
-      if (oldMap && oldMap->mapKeys() && oldMap->mapValues()) {
-        auto oldMapKeys = oldMap->mapKeys()->as<SimpleVector<StringView>>();
-        auto oldMapValues = oldMap->mapValues()->as<SimpleVector<StringView>>();
-        BOLT_CHECK_NOT_NULL(oldMapKeys);
-        BOLT_CHECK_NOT_NULL(oldMapValues);
-        BOLT_CHECK_EQ(oldMapValues->size(), oldMapValues->size());
+  //     if (oldMap && oldMap->mapKeys() && oldMap->mapValues()) {
+  //       auto oldMapKeys = oldMap->mapKeys()->as<SimpleVector<StringView>>();
+  //       auto oldMapValues = oldMap->mapValues()->as<SimpleVector<StringView>>();
+  //       BOLT_CHECK_NOT_NULL(oldMapKeys);
+  //       BOLT_CHECK_NOT_NULL(oldMapValues);
+  //       BOLT_CHECK_EQ(oldMapValues->size(), oldMapValues->size());
 
-        for (int rowIdx = 0; rowIdx < oldMap->size(); rowIdx++) {
-          if (!oldMap->isNullAt(rowIdx)) {
-            auto offset = oldMap->offsetAt(rowIdx);
-            auto size = oldMap->sizeAt(rowIdx);
+  //       for (int rowIdx = 0; rowIdx < oldMap->size(); rowIdx++) {
+  //         if (!oldMap->isNullAt(rowIdx)) {
+  //           auto offset = oldMap->offsetAt(rowIdx);
+  //           auto size = oldMap->sizeAt(rowIdx);
 
-            for (int i = 0; i < size; i++) {
-              if (!oldMapKeys->isNullAt(offset + i) &&
-                  !oldMapValues->isNullAt(offset + i)) {
-                combinedMap[rowIdx].push_back(
-                    {oldMapKeys->valueAt(offset + i),
-                     oldMapValues->valueAt(offset + i)});
-              }
-            }
-          }
-        }
-      }
+  //           for (int i = 0; i < size; i++) {
+  //             if (!oldMapKeys->isNullAt(offset + i) &&
+  //                 !oldMapValues->isNullAt(offset + i)) {
+  //               combinedMap[rowIdx].push_back(
+  //                   {oldMapKeys->valueAt(offset + i),
+  //                    oldMapValues->valueAt(offset + i)});
+  //             }
+  //           }
+  //         }
+  //       }
+  //     }
 
-      for (int colIdx = 0; colIdx < oldRow->childrenSize(); colIdx++) {
-        auto curCol =
-            oldRow->childAt(colIdx).get()->as<SimpleVector<StringView>>();
-        BOLT_CHECK_NOT_NULL(curCol);
-        for (int rowIdx = 0; rowIdx < curCol->size(); rowIdx++) {
-          if (!curCol->isNullAt(rowIdx)) {
-            combinedMap[rowIdx].push_back(
-                {StringView(keys[colIdx]), curCol->valueAt(rowIdx)});
-          }
-        }
-      }
+  //     for (int colIdx = 0; colIdx < oldRow->childrenSize(); colIdx++) {
+  //       auto curCol =
+  //           oldRow->childAt(colIdx).get()->as<SimpleVector<StringView>>();
+  //       BOLT_CHECK_NOT_NULL(curCol);
+  //       for (int rowIdx = 0; rowIdx < curCol->size(); rowIdx++) {
+  //         if (!curCol->isNullAt(rowIdx)) {
+  //           combinedMap[rowIdx].push_back(
+  //               {StringView(keys[colIdx]), curCol->valueAt(rowIdx)});
+  //         }
+  //       }
+  //     }
 
-      bytedance::bolt::test::VectorMaker vectorMaker(&memoryPool_);
-      auto combinedKvPtr = vectorMaker.mapVector(
-          combinedMap,
-          MAP(CppToType<StringView>::create(),
-              CppToType<StringView>::create()));
-      *result = combinedKvPtr;
-    } else {
-      *result = resultRow->childAt(0);
-    }
-  }
+  //     bytedance::bolt::test::VectorMaker vectorMaker(&memoryPool_);
+  //     auto combinedKvPtr = vectorMaker.mapVector(
+  //         combinedMap,
+  //         MAP(CppToType<StringView>::create(),
+  //             CppToType<StringView>::create()));
+  //     *result = combinedKvPtr;
+  //   } else {
+  //     *result = resultRow->childAt(0);
+  //   }
+  // }
 }
 
 } // namespace bytedance::bolt::dwio::common

@@ -183,7 +183,7 @@ TEST_F(JitEngineTest, cacheLimit) {
   jit->GetCache().clear();
   jit->SetMemoryLimit(LIMIT);
 
-  for (auto i = 0; i < 16; ++i) {
+  for (auto i = 0; i < 128; ++i) {
     std::string fn = "test_func_" + std::to_string(i);
     std::regex p("function_name");
     std::string ir = std::regex_replace(irTmpl, p, fn);
@@ -267,7 +267,7 @@ TEST_F(JitEngineTest, concurreny) {
   };
 
   std::vector<std::jthread> threads;
-  for (auto i = 0; i < 20; ++i) {
+  for (auto i = 0; i < 256; ++i) {
     threads.emplace_back(codegenWorker);
   }
   for (auto&& t : threads) {

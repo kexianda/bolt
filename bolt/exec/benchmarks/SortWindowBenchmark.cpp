@@ -19,7 +19,7 @@
 #include <folly/init/Init.h>
 #include <string>
 
-#include "Type.h"
+#include "bolt/type/Type.h"
 #include "bolt/exec/Operator.h"
 #include "bolt/exec/Window.h"
 #include "bolt/exec/tests/utils/HiveConnectorTestBase.h"

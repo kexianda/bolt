@@ -225,9 +225,21 @@ class RowEqvectorsTest : public OperatorTestBase {
     inputVector_ = makeRowVector(inputType_->names(), children);
   }
 
-  ~RowEqvectorsTest() override {
+  void TearDown() override {
+    rowContainer_ = nullptr;
+    inputVector_ = nullptr;
+    inputType_ = nullptr;
+    types_.clear();
+    decodedVectors_.clear();
+    rows_.clear();
+#ifdef ENABLE_BOLT_JIT
+    jitModule_ = nullptr;
+    eqFunc_ = nullptr;
+#endif
     OperatorTestBase::TearDown();
   }
+
+  ~RowEqvectorsTest() = default;
 
   void TestBody() override {}
 

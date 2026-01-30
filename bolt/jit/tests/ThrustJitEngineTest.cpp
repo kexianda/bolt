@@ -42,24 +42,26 @@ int64_t extern_test_sum(int64_t a, int64_t b) {
   return a + b;
 }
 
+extern int StringViewCompareWrapper(char* l, char* r);
+
 // extern int64_t extern_test_sum(int64_t a, int64_t b);
 
-int StringViewWrapper(const char* l, const char* r) noexcept {
-  bytedance::bolt::jit::test::StringView* left =
-      (bytedance::bolt::jit::test::StringView*)l;
-  bytedance::bolt::jit::test::StringView* right =
-      (bytedance::bolt::jit::test::StringView*)r;
+// int StringViewWrapper(const char* l, const char* r) noexcept {
+//   bytedance::bolt::jit::test::StringView* left =
+//       (bytedance::bolt::jit::test::StringView*)l;
+//   bytedance::bolt::jit::test::StringView* right =
+//       (bytedance::bolt::jit::test::StringView*)r;
 
-  // only for inline sv
-  auto res = std::memcmp(left->inline_chars, right->inline_chars, left->len);
-  if (res < 0) {
-    return -1;
-  }
-  if (res > 0) {
-    return 1;
-  }
-  return 0;
-}
+//   // only for inline sv
+//   auto res = std::memcmp(left->inline_chars, right->inline_chars, left->len);
+//   if (res < 0) {
+//     return -1;
+//   }
+//   if (res > 0) {
+//     return 1;
+//   }
+//   return 0;
+// }
 
 } // ~ extern
 
@@ -82,6 +84,13 @@ class JitEngineTest : public ::testing::Test {
 using namespace bolt::jit;
 
 TEST_F(JitEngineTest, basic) {
+  // Force the linker import symbol 'StringViewCompareWrapper'
+  ::StringViewCompareWrapper(nullptr, nullptr);
+  int32_t sz1{0};
+  int32_t sz2{0};
+  auto res = ::StringViewCompareWrapper(reinterpret_cast<char*>(&sz1), reinterpret_cast<char*>(&sz2));
+  ASSERT_TRUE(res == 0);
+
   std::string fn = "sum_test2";
   auto tsm = jit->CreateTSModule(fn);
 

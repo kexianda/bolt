@@ -15,16 +15,23 @@
 
 if(${ENABLE_BOLT_JIT})
 
-  add_executable(bolt_thrustjit_test RowContainerIRTest.cpp ThrustJitEngineTest.cpp)
+  add_executable(bolt_thrustjit_test
+    RowContainerIRTest.cpp
+    ThrustJitEngineTest.cpp
+  )
   target_compile_features(bolt_thrustjit_test PUBLIC cxx_std_20)
   target_link_libraries(
     bolt_thrustjit_test PRIVATE
     bolt_testutils
+    bolt_engine
     GTest::gtest GTest::gtest_main
   )
-  target_include_directories(bolt_thrustjit_test PRIVATE SYSTEM ${LLVM_INCLUDE_DIRS})
+  add_test(bolt_thrustjit_test bolt_thrustjit_test)
 
-  add_executable(bolt_row_cmp_test RowEqVectorsIRTest.cpp RowEqRowIRTest.cpp)
+  add_executable(bolt_row_cmp_test
+    RowEqVectorsIRTest.cpp
+    RowEqRowIRTest.cpp
+  )
   target_link_libraries(
     bolt_row_cmp_test
     bolt_testutils
@@ -32,15 +39,6 @@ if(${ENABLE_BOLT_JIT})
     GTest::gtest_main
     Folly::follybenchmark
   )
-
-  # add_executable(bolt_rowEqRow_test RowEqRowIRTest.cpp)
-  # target_link_libraries(
-  #   bolt_rowEqRow_test
-  #   bolt_testutils
-  #   GTest::gtest
-  #   GTest::gtest_main
-  # )
-  add_test(bolt_thrustjit_test bolt_thrustjit_test)
   add_test(bolt_row_cmp_test bolt_row_cmp_test)
 endif()
 

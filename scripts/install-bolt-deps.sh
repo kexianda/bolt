@@ -18,7 +18,6 @@ set -euo pipefail
 CUR_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null && pwd)"
 cd "${CUR_DIR}"
 
-CONAN_CENTER_COMMIT_ID="bad5c95b810e859c1c31553b92584246fe436d69"
 CCI_HOME="${CONAN_HOME:-~/.conan2}/conan-center-index"
 
 if ! command -v conan &> /dev/null; then
@@ -28,42 +27,25 @@ fi
 
 # Does a shallow checkout of conan-center-index at the given commit id in $1
 checkout_conan_center_index() {
-  local target_commit="$1"
-  local need_clone=true
+  local tag_name="bolt-dev"
+  local current_origin_url=""
+  local bolt_dev_origin_url="https://github.com/bytedance/conan-center-index.git"
 
-  if [ -d "${CCI_HOME}/.git" ]; then
-    echo "ℹ️  Found existing conan-center-index cache..."
-    pushd "${CCI_HOME}" > /dev/null
-
-    local current_commit
-    current_commit=$(git rev-parse HEAD 2> /dev/null || echo "")
-
-    if [ "${current_commit}" == "${target_commit}" ]; then
-      echo "✅ Cache hit: conan-center-index is already at ${target_commit}. Skipping download."
-      git reset --hard HEAD > /dev/null 2>&1
-      git clean -fd > /dev/null 2>&1
-      need_clone=false
-    else
-      echo "🔄 Cache outdated. Updating to ${target_commit}..."
-      if git fetch --depth 1 origin "${target_commit}" > /dev/null 2>&1; then
-        git checkout FETCH_HEAD > /dev/null 2>&1
-        need_clone=false
-      fi
-    fi
-    popd > /dev/null
+  # check if we are on a Bolt tag
+  # for a bolt release, we use the tag name as the conan-center-index tag name
+  if git describe --exact-match --tags HEAD > /dev/null 2>&1; then
+    tag_name=$(git describe --exact-match --tags HEAD)
   fi
 
-  if $need_clone; then
-    echo "⬇️  Cloning conan-center-index (Commit: ${target_commit})..."
-    rm -rf "${CCI_HOME}"
-    mkdir -p "${CCI_HOME}"
-    pushd "${CCI_HOME}" > /dev/null
-    git init -q
-    git remote add origin https://github.com/conan-io/conan-center-index.git
-    git fetch --depth 1 origin "${target_commit}"
-    git checkout -q FETCH_HEAD
-    popd > /dev/null
-  fi
+  \rm -rf "${CCI_HOME}"
+  mkdir -p "${CCI_HOME}"
+  pushd "${CCI_HOME}" > /dev/null
+  echo "ℹ️  Cloning conan-center-index at ${tag_name} from ${bolt_dev_origin_url}..."
+  git init -q
+  git remote add origin https://github.com/bytedance/conan-center-index.git
+  git fetch origin --depth 1 ${tag_name}
+  git switch -q ${tag_name}
+  popd > /dev/null
 }
 
 update_conan_remote() {
@@ -81,31 +63,7 @@ update_conan_remote() {
   fi
 }
 
-update_conan_remote "bolt-local" "${CUR_DIR}/conan" "local-recipes-index"
-
-checkout_conan_center_index "${CONAN_CENTER_COMMIT_ID}"
-
-echo "🩹 Applying patches..."
-for patch_file in "${CUR_DIR}/conan/patches"/*.patch; do
-  if [ ! -f "$patch_file" ]; then
-    continue
-  fi
-  patch_name=$(basename "$patch_file")
-
-  if output=$(patch -p1 -f -N -d "${CCI_HOME}" -i "$patch_file" 2>&1); then
-    echo "✅ Applied: $patch_name"
-  else
-    if echo "$output" | grep -q "Reversed (or previously applied) patch detected"; then
-      echo "⚠️  Skipped: $patch_name (Already applied)"
-    else
-      echo "❌ Failed to apply $patch_name"
-      echo "--- Patch Output ---"
-      echo "$output"
-      echo "--------------------"
-      exit 1
-    fi
-  fi
-done
+checkout_conan_center_index
 
 update_conan_remote "bolt-cci-local" "${CCI_HOME}" "local-recipes-index"
 

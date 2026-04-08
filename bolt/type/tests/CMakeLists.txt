@@ -36,6 +36,7 @@ add_executable(
   FloatingPointFiltersTest.cpp
   FloatingPointUtilTest.cpp
   HugeIntTest.cpp
+  StringViewBaseTest.cpp
   StringViewTest.cpp
   SubfieldTest.cpp
   TimestampConversionTest.cpp

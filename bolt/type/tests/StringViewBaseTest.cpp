@@ -142,6 +142,25 @@ TYPED_TEST(StringViewBaseTypedTest, LinearSearch) {
       4);
 }
 
+TYPED_TEST(StringViewBaseTypedTest, NullFlag) {
+  auto nullView = TypeParam::null();
+  auto valueView = TypeParam("value");
+  auto otherNull = TypeParam::null();
+
+  EXPECT_TRUE(nullView.isNull());
+  EXPECT_EQ(nullView.size(), 0);
+  EXPECT_TRUE(nullView.empty());
+  EXPECT_EQ(nullView.data(), nullptr);
+
+  EXPECT_EQ(nullView, otherNull);
+  EXPECT_NE(nullView, valueView);
+  EXPECT_LT(nullView, valueView);
+  EXPECT_EQ(nullView.compare(otherNull), 0);
+
+  std::vector<TypeParam> values = {valueView, nullView, TypeParam("other")};
+  EXPECT_EQ(TypeParam::linearSearch(TypeParam::null(), values.data(), nullptr, 3), 1);
+}
+
 TEST(StringViewBaseTest, LayoutAndInlineBoundary) {
   EXPECT_EQ(sizeof(StringView4), 16);
   EXPECT_GE(sizeof(StringView12), 24);

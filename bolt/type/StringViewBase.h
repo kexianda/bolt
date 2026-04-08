@@ -49,6 +49,9 @@ struct StringViewBase {
  public:
   using value_type = char;
 
+  static constexpr uint32_t kNullMask = 1u << 31;
+  static constexpr uint32_t kSizeMask = ~kNullMask;
+
   static constexpr size_t kPrefixSize = PrefixLen * sizeof(char);
   static constexpr size_t kInlinePayloadSize = 8;
   static constexpr size_t kInlineSize = kPrefixSize + kInlinePayloadSize;
@@ -61,32 +64,41 @@ struct StringViewBase {
     set(data, len);
   }
 
+  static StringViewBase null() {
+    StringViewBase view;
+    view.setNull();
+    return view;
+  }
+
   void clear() {
-    auto* p = reinterpret_cast<int64_t*>(this);
-    *p++ = 0L;
-    *p = 0L;
-    if constexpr (PrefixLen == 12) {
-      *(reinterpret_cast<int32_t*>(p) + (2 * sizeof(int64_t))) = 0;
-    }
+    std::memset(this, 0, sizeof(*this));
+  }
+
+  void setNull() {
+    clear();
+    size_ = kNullMask;
   }
 
   void set(const char* data, int32_t len) {
     BOLT_CHECK_GE(len, 0);
     BOLT_DCHECK(data || len == 0);
+    BOLT_CHECK_LE(static_cast<uint32_t>(len), kSizeMask);
 
     clear();
 
-    size_ = len;
+    size_ = static_cast<uint32_t>(len);
 
-    if (size_ == 0) {
+    if (size() == 0) {
       return;
     }
 
     if (isInline()) {
-      const auto prefixBytes = std::min<uint32_t>(size_, kPrefixSize);
+      const auto actualSize = static_cast<uint32_t>(size());
+      const auto prefixBytes = std::min<uint32_t>(actualSize, kPrefixSize);
       std::memcpy(prefix_, data, prefixBytes);
-      if (size_ > kPrefixSize) {
-        std::memcpy(value_.inlined, data + kPrefixSize, size_ - kPrefixSize);
+      if (actualSize > kPrefixSize) {
+        std::memcpy(
+            value_.inlined, data + kPrefixSize, actualSize - kPrefixSize);
       }
     } else {
       std::memcpy(prefix_, data, kPrefixSize);
@@ -114,20 +126,27 @@ struct StringViewBase {
       : StringViewBase(value.data(), value.size()) {}
 
   bool isInline() const {
-    return isInline(size_);
+    return !isNull() && isInline(size());
   }
 
   static constexpr bool isInline(uint32_t size) {
     return size <= kInlineSize;
   }
 
+  bool isNull() const {
+    return (size_ & kNullMask) != 0;
+  }
+
   const char* data() && = delete;
   const char* data() const& {
+    if (isNull()) {
+      return nullptr;
+    }
     return isInline() ? prefix_ : value_.data;
   }
 
   size_t size() const {
-    return size_;
+    return size_ & kSizeMask;
   }
 
   size_t capacity() const {
@@ -137,29 +156,36 @@ struct StringViewBase {
   friend std::ostream& operator<<(
       std::ostream& os,
       const StringViewBase& stringView) {
-    os.write(stringView.data(), stringView.size());
+    if (!stringView.isNull()) {
+      os.write(stringView.data(), stringView.size());
+    }
     return os;
   }
 
   bool operator==(const StringViewBase& other) const {
+    if (isNull() || other.isNull()) {
+      return isNull() == other.isNull();
+    }
     if (sizeAndPrefixAsInt64() != other.sizeAndPrefixAsInt64()) {
       return false;
     }
 
-    if (size_ <= kPrefixSize) {
+    if (size() <= kPrefixSize) {
       return true;
     }
 
     if (isInline()) {
       return std::memcmp(
-                 value_.inlined, other.value_.inlined, size_ - kPrefixSize) ==
+                 value_.inlined,
+                 other.value_.inlined,
+                 size() - kPrefixSize) ==
           0;
     }
 
     return std::memcmp(
                value_.data + kPrefixSize,
                other.value_.data + kPrefixSize,
-               size_ - kPrefixSize) == 0;
+               size() - kPrefixSize) == 0;
   }
 
   bool operator!=(const StringViewBase& other) const {
@@ -167,6 +193,12 @@ struct StringViewBase {
   }
 
   int32_t compare(const StringViewBase& other) const {
+    if (isNull() || other.isNull()) {
+      if (isNull() && other.isNull()) {
+        return 0;
+      }
+      return isNull() ? -1 : 1;
+    }
     auto prefix = prefixAsInt();
     auto otherPrefix = other.prefixAsInt();
     if (prefix != otherPrefix) {
@@ -177,14 +209,14 @@ struct StringViewBase {
       return prefix < otherPrefix ? -1 : 1;
     }
 
-    const int32_t remaining = std::min(size_, other.size_) - kPrefixSize;
+    const int32_t remaining = std::min(size(), other.size()) - kPrefixSize;
     if (remaining <= 0) {
-      return size_ - other.size_;
+      return size() - other.size();
     }
 
     const auto result = std::memcmp(
         data() + kPrefixSize, other.data() + kPrefixSize, remaining);
-    return result != 0 ? result : size_ - other.size_;
+    return result != 0 ? result : size() - other.size();
   }
 
   bool operator<(const StringViewBase& other) const {
@@ -205,11 +237,11 @@ struct StringViewBase {
 
   operator folly::StringPiece() && = delete;
   operator folly::StringPiece() const& {
-    return folly::StringPiece(data(), size());
+    return folly::StringPiece(isNull() ? "" : data(), size());
   }
 
   operator std::string() const {
-    return std::string(data(), size());
+    return std::string(isNull() ? "" : data(), size());
   }
 
   std::string str() const {
@@ -226,12 +258,12 @@ struct StringViewBase {
 
   operator folly::dynamic() && = delete;
   operator folly::dynamic() const& {
-    return folly::dynamic(folly::StringPiece(data(), size()));
+    return folly::dynamic(folly::StringPiece(isNull() ? "" : data(), size()));
   }
 
   operator std::string_view() && = delete;
   explicit operator std::string_view() const& {
-    return std::string_view(data(), size());
+    return std::string_view(isNull() ? "" : data(), size());
   }
 
   const char* begin() && = delete;
@@ -297,14 +329,15 @@ struct StringViewBase {
 using StringView4 = StringViewBase<4>;
 using StringView12 = StringViewBase<12>;
 
-using StringView2 = StringViewBase<12>;
-
 } // namespace bytedance::bolt
 
 namespace std {
 template <>
 struct hash<::bytedance::bolt::StringView4> {
   size_t operator()(const ::bytedance::bolt::StringView4& view) const {
+    if (view.isNull()) {
+      return 0;
+    }
     return std::hash<std::string_view>{}(
         std::string_view(view.data(), view.size()));
   }
@@ -313,6 +346,9 @@ struct hash<::bytedance::bolt::StringView4> {
 template <>
 struct hash<::bytedance::bolt::StringView12> {
   size_t operator()(const ::bytedance::bolt::StringView12& view) const {
+    if (view.isNull()) {
+      return 0;
+    }
     return std::hash<std::string_view>{}(
         std::string_view(view.data(), view.size()));
   }

@@ -84,6 +84,7 @@ std::string getVariantFixturePath(const std::string& fileName) {
       fileName,
       cwd.string(),
       sourceDir.string());
+  return {};
 }
 } // namespace
 

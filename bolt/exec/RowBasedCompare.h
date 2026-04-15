@@ -65,22 +65,23 @@ FOLLY_ALWAYS_INLINE int compareComplex(
     return flag.nullsFirst ? 1 : -1;
   }
 
-  auto leftSv = reinterpret_cast<const std::string_view*>(
-           left + leftColumn.offset()),
-       rightSv = reinterpret_cast<const std::string_view*>(
+  const auto *leftSv = reinterpret_cast<const std::string_view*>(
+           left + leftColumn.offset());
+  const auto *rightSv = reinterpret_cast<const std::string_view*>(
            right + rightColumn.offset());
-  int32_t leftSize = leftSv->size(), rightSize = rightSv->size();
+  int32_t leftSize = leftSv->size();
+  int32_t rightSize = rightSv->size();
 
-  uint8_t* leftPtr =
+  auto* leftPtr =
       reinterpret_cast<uint8_t*>(const_cast<char*>(leftSv->data()));
-  uint8_t* rightPtr =
+  auto* rightPtr =
       reinterpret_cast<uint8_t*>(const_cast<char*>(rightSv->data()));
 
-  ByteRange leftRange{leftPtr, leftSize, 0};
-  ByteRange rightRange{rightPtr, rightSize, 0};
+  ByteRange leftRange{.buffer=leftPtr, .size=leftSize, .position=0};
+  ByteRange rightRange{.buffer=rightPtr, .size=rightSize, .position=0};
 
-  ByteInputStream leftStream(std::vector<ByteRange>{leftRange}),
-      rightStream(std::vector<ByteRange>{rightRange});
+  ByteInputStream leftStream(std::vector<ByteRange>{leftRange});
+  ByteInputStream rightStream(std::vector<ByteRange>{rightRange});
   int ans = ContainerRowSerde::compare(leftStream, rightStream, type, flag);
   return ans == 0 ? 0 : (ans > 0 ? 1 : -1);
 }

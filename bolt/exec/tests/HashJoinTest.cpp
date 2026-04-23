@@ -1024,6 +1024,119 @@ TEST_P(MultiThreadedHashJoinTest, bigintArray) {
       .run();
 }
 
+TEST_F(HashJoinTest, factDimJoinHybridAndSpillConfigs) {
+  std::vector<RowVectorPtr> factVectors;
+  factVectors.reserve(3);
+  for (int32_t batch = 0; batch < 3; ++batch) {
+    factVectors.push_back(makeRowVector(
+        {"fact_device_id", "timestamp", "value"},
+        {makeFlatVector<int64_t>(512, [&](auto row) {
+           return (batch * 512 + row) % 256;
+         }),
+         makeFlatVector<int64_t>(
+             512, [&](auto row) { return batch * 1'000 + row; }),
+         makeFlatVector<int64_t>(512, [&](auto row) {
+           return batch * 10'000 + row * 7;
+         })}));
+  }
+
+  std::vector<std::string> dimNames;
+  dimNames.reserve(256);
+  for (int32_t row = 0; row < 256; ++row) {
+    dimNames.push_back(fmt::format("device_{:03d}", row));
+  }
+
+  std::vector<RowVectorPtr> dimVectors;
+  dimVectors.push_back(makeRowVector(
+      {"dim_device_id", "name"},
+      {makeFlatVector<int64_t>(256, folly::identity), makeFlatVector(dimNames)}));
+
+  std::vector<std::shared_ptr<TempFilePath>> factFiles;
+  factFiles.reserve(factVectors.size());
+  for (const auto& factVector : factVectors) {
+    factFiles.push_back(TempFilePath::create());
+    writeToFile(factFiles.back()->path, {factVector});
+  }
+
+  std::vector<std::shared_ptr<TempFilePath>> dimFiles;
+  dimFiles.reserve(dimVectors.size());
+  for (const auto& dimVector : dimVectors) {
+    dimFiles.push_back(TempFilePath::create());
+    writeToFile(dimFiles.back()->path, {dimVector});
+  }
+
+  createDuckDbTable("fact", factVectors);
+  createDuckDbTable("dim", dimVectors);
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  core::PlanNodeId factScanId;
+  core::PlanNodeId dimScanId;
+  auto plan =
+      PlanBuilder(planNodeIdGenerator)
+          .tableScan(asRowType(factVectors[0]->type()))
+          .capturePlanNodeId(factScanId)
+          .hashJoin(
+              {"fact_device_id"},
+              {"dim_device_id"},
+              PlanBuilder(planNodeIdGenerator)
+                  .tableScan(asRowType(dimVectors[0]->type()))
+                  .capturePlanNodeId(dimScanId)
+                  .planNode(),
+              "",
+              {"fact_device_id", "timestamp", "value", "name"},
+              core::JoinType::kInner)
+          .planNode();
+
+  const std::string referenceQuery =
+      "SELECT fact.fact_device_id, fact.timestamp, fact.value, dim.name "
+      "FROM fact JOIN dim ON fact.fact_device_id = dim.dim_device_id";
+
+  for (const int32_t numDrivers : {1}) {
+    for (const bool hybridJoin : {true}) {
+      for (const bool spillEnabled : {true}) {
+        SCOPED_TRACE(fmt::format(
+            "hybridJoin={}, spillEnabled={}, numDrivers={}",
+            hybridJoin,
+            spillEnabled,
+            numDrivers));
+
+        AssertQueryBuilder builder(plan, duckDbQueryRunner_);
+        builder.maxDrivers(numDrivers)
+            .config(core::QueryConfig::kJitLevel, "-1")
+            .config(
+                core::QueryConfig::kHybridJoinEnabled,
+                hybridJoin ? "true" : "false")
+            .config(core::QueryConfig::kHybridJoinReorderEnabled, "false");
+
+        std::shared_ptr<TempDirectoryPath> spillDirectory;
+        if (spillEnabled) {
+          spillDirectory = exec::test::TempDirectoryPath::create();
+          builder.spillDirectory(spillDirectory->path)
+              .config(core::QueryConfig::kSpillEnabled, "true")
+              .config(core::QueryConfig::kJoinSpillEnabled, "true");
+        } else {
+          builder.config(core::QueryConfig::kSpillEnabled, "false");
+        }
+
+        std::vector<exec::Split> factSplits;
+        factSplits.reserve(factFiles.size());
+        for (const auto& file : factFiles) {
+          factSplits.push_back(exec::Split(makeHiveConnectorSplit(file->path)));
+        }
+        std::vector<exec::Split> dimSplits;
+        dimSplits.reserve(dimFiles.size());
+        for (const auto& file : dimFiles) {
+          dimSplits.push_back(exec::Split(makeHiveConnectorSplit(file->path)));
+        }
+
+        builder.splits(factScanId, std::move(factSplits))
+            .splits(dimScanId, std::move(dimSplits))
+            .assertResults(referenceQuery, std::vector<uint32_t>{0, 1, 2, 3});
+      }
+    }
+  }
+}
+
 TEST_P(MultiThreadedHashJoinTest, outOfJoinKeyColumnOrder) {
   HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
       .numDrivers(numDrivers_)

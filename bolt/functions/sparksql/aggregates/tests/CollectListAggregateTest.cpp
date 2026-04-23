@@ -28,8 +28,13 @@
  * --------------------------------------------------------------------------
  */
 
+#include "bolt/exec/PlanNodeStats.h"
 #include "bolt/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
+#include "bolt/exec/tests/utils/AssertQueryBuilder.h"
+#include "bolt/exec/tests/utils/PlanBuilder.h"
+#include "bolt/exec/tests/utils/TempDirectoryPath.h"
 #include "bolt/functions/sparksql/aggregates/Register.h"
+using namespace bytedance::bolt::exec::test;
 using namespace bytedance::bolt::functions::aggregate::test;
 namespace bytedance::bolt::functions::aggregate::sparksql::test {
 
@@ -134,6 +139,63 @@ TEST_F(CollectListAggregateTest, allNullsInput) {
       {},
       {expected},
       {});
+}
+
+TEST_F(CollectListAggregateTest, groupByWithAvgAndSpill) {
+  auto input = makeRowVector(
+      {makeFlatVector<int64_t>({1, 1, 1, 1, 1, 2, 2, 2, 2, 2}),
+       makeFlatVector<std::string>(
+           {"alice",
+            "alice",
+            "alice",
+            "alice",
+            "alice",
+            "bob",
+            "bob",
+            "bob",
+            "bob",
+            "bob"}),
+       makeFlatVector<int64_t>({10, 20, 30, 40, 50, 15, 25, 35, 45, 55}),
+       makeFlatVector<int64_t>({5, 4, 3, 2, 1, 10, 9, 8, 7, 6}),
+       makeFlatVector<std::string>(
+           {"aa", "az", "ab", "ac", "ad", "ba", "bz", "bb", "bc", "bd"})});
+
+  auto expected = makeRowVector(
+      {makeFlatVector<int64_t>({1, 2}),
+       makeFlatVector<std::string>({"alice", "bob"}),
+       makeFlatVector<double>({30.0, 35.0}),
+       makeArrayVectorFromJson<int64_t>({"[1, 2, 3, 4, 5]", "[6, 7, 8, 9, 10]"}),
+       makeFlatVector<std::string>({"az", "bz"})});
+
+  std::unordered_map<std::string, std::string> config = {
+      {core::QueryConfig::kSpillEnabled, "true"},
+      {core::QueryConfig::kAggregationSpillEnabled, "true"},
+      {core::QueryConfig::kPreferPartialAggregationSpill, "true"},
+      {core::QueryConfig::kTestingSpillPct, "100"},
+      {core::QueryConfig::kAggregationSpillMemoryThreshold, "1"}};
+
+  core::PlanNodeId partialAggNodeId;
+  auto plan = PlanBuilder()
+                  .values({input})
+                  .partialAggregation(
+                      {"c0", "c1"},
+                      {"spark_avg(c2)", "spark_collect_list(c3)", "spark_max(c4)"})
+                  .capturePlanNodeId(partialAggNodeId)
+                  .finalAggregation()
+                  .project({"c0", "c1", "a0", "array_sort(a1)", "a2"})
+                  .planNode();
+
+  auto spillDirectory = TempDirectoryPath::create();
+  auto task = AssertQueryBuilder(plan)
+                  .configs(config)
+                  .spillDirectory(spillDirectory->path)
+                  .assertResults(expected);
+
+  auto stats = exec::toPlanStats(task->taskStats());
+  EXPECT_GT(stats.at(partialAggNodeId).spilledBytes, 0);
+  EXPECT_GT(stats.at(partialAggNodeId).customStats.count("spillRuns"), 0);
+  EXPECT_GT(stats.at(partialAggNodeId).customStats.at("spillRuns").sum, 0);
+  OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
 }
 } // namespace
 } // namespace bytedance::bolt::functions::aggregate::sparksql::test

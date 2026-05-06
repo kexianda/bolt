@@ -80,6 +80,7 @@ add_executable(
   ProbeOperatorStateTest.cpp
   RoundRobinPartitionFunctionTest.cpp
   RowContainerTest.cpp
+  RowContainer2Test.cpp
   RowNumberTest.cpp
   RowStreamingWindowTest.cpp
   SortAlgoTest.cpp

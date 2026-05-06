@@ -26,6 +26,7 @@
 # --------------------------------------------------------------------------
 
 set(AGGREGATES_TEST_SRC
+    AggregateSpillTest.cpp
     AggregationFunctionRegTest.cpp
     ApproxDistinctTest.cpp
     ApproxMostFrequentTest.cpp

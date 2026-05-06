@@ -86,6 +86,7 @@ bolt_add_library(
   ProbeOperatorState.cpp
   PushBasedEvent.cpp
   RowContainer.cpp
+  RowContainer2.cpp
   RowNumber.cpp
   RowsStreamingWindowBuild.cpp
   RowsStreamingWindowPartition.cpp

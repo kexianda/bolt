@@ -179,7 +179,7 @@ TEST_F(CollectListAggregateTest, groupByWithAvgAndSpill) {
                   .values({input})
                   .partialAggregation(
                       {"c0", "c1"},
-                      {"spark_avg(c2)", "spark_collect_list(c3)", "spark_max(c4)"})
+                      {"avg(c2)", "collect_list(c3)", "max(c4)"})
                   .capturePlanNodeId(partialAggNodeId)
                   .finalAggregation()
                   .project({"c0", "c1", "a0", "array_sort(a1)", "a2"})

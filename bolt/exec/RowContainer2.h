@@ -17,106 +17,152 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <vector>
 #include "bolt/exec/RowContainer.h"
 
 namespace bytedance::bolt::exec {
 
+/// @brief RowFieldMeta is used to store the metadata of a field in a row.
+/// @note The metadata is stored in a 64-bit integer.
+///    bit 0-7: type kind
+///    bit 8: is nullable
+///    bit 9: is ascending order (for sort keys)
+///    bit 10: is nulls first (for sort keys)
+///    bit 11: is long prefix StringView
+///    bit 12: dictionary encoding
+///    bit 13-15: reserved for future use
+///    bit 16-23: precision for decimal
+///    bit 24-31: scale for decimal
+///    bit 16-31: children count for complex types
+///    bit 32-51: field bytes offset in the row. 2 ^^ 20 = 1M
+///    bit 52-63: null flag offset from field.
 struct RowFieldMeta {
-    // bit 0-7
-    constexpr int8_t typeKind() const {
-      return data & 0xFF;
-    }
+  static constexpr uint64_t kTypeKindShift = 0;
+  static constexpr uint64_t kNullableShift = 8;
+  static constexpr uint64_t kAscendingShift = 9;
+  static constexpr uint64_t kNullsFirstShift = 10;
+  static constexpr uint64_t kLongPrefixStringViewShift = 11;
+  static constexpr uint64_t kChildrenCntShift = 16;
+  static constexpr uint64_t kPrecisionShift = 16;
+  static constexpr uint64_t kScaleShift = 24;
+  static constexpr uint64_t kFieldOffsetShift = 32;
+  static constexpr uint64_t kNullFlagOffsetShift = 52;
 
-    constexpr RowFieldMeta& setTypeKind(int8_t kind) {
-      auto u = static_cast<uint64_t>(data);
-      u = (u & ~uint64_t{0xFF}) | (static_cast<uint64_t>(kind) & 0xFF);
-      data = static_cast<int64_t>(u);
-      return *this;
-    }
+  static constexpr uint64_t kTypeKindMask = 0xFFULL << kTypeKindShift;
+  static constexpr uint64_t kNullableMask = 0x1ULL << kNullableShift;
+  static constexpr uint64_t kAscendingMask = 0x1ULL << kAscendingShift;
+  static constexpr uint64_t kNullsFirstMask = 0x1ULL << kNullsFirstShift;
+  static constexpr uint64_t kLongPrefixStringViewMask = 0x1ULL
+      << kLongPrefixStringViewShift;
+  static constexpr uint64_t kChildrenCntMask = 0xFFFFULL << kChildrenCntShift;
+  static constexpr uint64_t kPrecisionMask = 0xFFULL << kPrecisionShift;
+  static constexpr uint64_t kScaleMask = 0xFFULL << kScaleShift;
+  static constexpr uint64_t kFieldOffsetMask = 0xFFFFFULL << kFieldOffsetShift;
+  static constexpr uint64_t kNullFlagOffsetMask = 0xFFFULL
+      << kNullFlagOffsetShift;
 
-    // bit 8-10
-    // bit 11-15 reserved for future use
-    constexpr bool isNullable()  const { return (data >> 8) & 0x1; }
-    constexpr bool isAsc()  const { return (data >> 9) & 0x1; }
-    constexpr bool isNullsFirst()  const { return (data >> 10) & 0x1; }
+  // bit 0-7
+  constexpr TypeKind typeKind() const {
+    return static_cast<TypeKind>(extractBits(kTypeKindMask, kTypeKindShift));
+  }
 
-    constexpr RowFieldMeta& setNullable(bool nullable) {
-      auto u = static_cast<uint64_t>(data);
-      constexpr uint64_t mask = uint64_t{1} << 8;
-      u = nullable ? (u | mask) : (u & ~mask);
-      data = static_cast<int64_t>(u);
-      return *this;
-    }
+  void setTypeKind(TypeKind kind) {
+    updateBits(static_cast<uint8_t>(kind), kTypeKindMask, kTypeKindShift);
+  }
 
-    constexpr RowFieldMeta& setAsc(bool asc) {
-      auto u = static_cast<uint64_t>(data);
-      constexpr uint64_t mask = uint64_t{1} << 9;
-      u = asc ? (u | mask) : (u & ~mask);
-      data = static_cast<int64_t>(u);
-      return *this;
-    }
+  constexpr bool nullable() const {
+    return extractBits(kNullableMask, kNullableShift) != 0;
+  }
 
-    constexpr RowFieldMeta& setNullsFirst(bool nullsFirst) {
-      auto u = static_cast<uint64_t>(data);
-      constexpr uint64_t mask = uint64_t{1} << 10;
-      u = nullsFirst ? (u | mask) : (u & ~mask);
-      data = static_cast<int64_t>(u);
-      return *this;
-    }
+  void setNullable(bool nullable) {
+    updateBits(nullable, kNullableMask, kNullableShift);
+  }
 
-    // bit 16-23
-    constexpr int8_t getPrecision()  const { return (data >> 16) & 0xFF; }
-    constexpr int8_t getScale()  const { return (data >> 24) & 0xFF; }
-    constexpr int8_t getSvPrefixLen()  const { return (data >> 16) & 0xFF; }
+  constexpr bool ascending() const {
+    return extractBits(kAscendingMask, kAscendingShift) != 0;
+  }
 
-    constexpr RowFieldMeta& setPrecision(int8_t precision) {
-      auto u = static_cast<uint64_t>(data);
-      constexpr uint64_t mask = uint64_t{0xFF} << 16;
-      u = (u & ~mask) | ((static_cast<uint64_t>(precision) & 0xFF) << 16);
-      data = static_cast<int64_t>(u);
-      return *this;
-    }
+  void setAscending(bool ascending) {
+    updateBits(static_cast<uint64_t>(ascending), kAscendingMask, kAscendingShift);
+  }
 
-    constexpr RowFieldMeta& setScale(int8_t scale) {
-      auto u = static_cast<uint64_t>(data);
-      constexpr uint64_t mask = uint64_t{0xFF} << 24;
-      u = (u & ~mask) | ((static_cast<uint64_t>(scale) & 0xFF) << 24);
-      data = static_cast<int64_t>(u);
-      return *this;
-    }
+  constexpr bool nullsFirst() const {
+    return extractBits(kNullsFirstMask, kNullsFirstShift) != 0;
+  }
 
-    constexpr RowFieldMeta& setSvPrefixLen(int8_t prefixLen) {
-      // Shares the same bit field with precision (bit 16-23).
-      return setPrecision(prefixLen);
-    }
+  void setNullsFirst(bool nullsFirst) {
+    updateBits(static_cast<uint64_t>(nullsFirst), kNullsFirstMask, kNullsFirstShift);
+  }
 
-    // bit 31-51: 2 ^^ 20 = 1M, that is enough
-    constexpr int32_t getFieldOffset()  const { return (data >> 32) & 0xFFFFF; }
-    // bit 52-63 2 ^^ 12 = 4096, bit offset
-    // how to get null flag:
-    //  *(row + getFieldOffset() + getNullFlagOffset() / 8) & (1 << (getNullFlagOffset() % 8))
-    constexpr int32_t getNullFlagOffset()  const { return (data >> 42) & 0xFFFFF; }
+  constexpr bool longPrefixStringView() const {
+    return extractBits(kLongPrefixStringViewMask, kLongPrefixStringViewShift) !=
+        0;
+  }
 
-    constexpr RowFieldMeta& setFieldOffset(int32_t fieldOffset) {
-      auto u = static_cast<uint64_t>(data);
-      constexpr uint64_t mask = uint64_t{0xFFFFF} << 32;
-      u = (u & ~mask) | ((static_cast<uint64_t>(fieldOffset) & 0xFFFFF) << 32);
-      data = static_cast<int64_t>(u);
-      return *this;
-    }
+  void setLongPrefixStringView(bool enabled) {
+    updateBits(static_cast<uint64_t>(enabled), kLongPrefixStringViewMask, kLongPrefixStringViewShift);
+  }
 
-    constexpr RowFieldMeta& setNullFlagOffset(int32_t nullFlagOffset) {
-      auto u = static_cast<uint64_t>(data);
-      constexpr uint64_t mask = uint64_t{0xFFFFF} << 42;
-      u = (u & ~mask) | ((static_cast<uint64_t>(nullFlagOffset) & 0xFFFFF) << 42);
-      data = static_cast<int64_t>(u);
-      return *this;
-    }
+  constexpr uint16_t childrenCnt() const {
+    return static_cast<uint16_t>(
+        extractBits(kChildrenCntMask, kChildrenCntShift));
+  }
+
+  void setChildrenCnt(uint16_t childrenCnt) {
+    updateBits(childrenCnt, kChildrenCntMask, kChildrenCntShift);
+  }
+
+  constexpr uint8_t precision() const {
+    return static_cast<uint8_t>(extractBits(kPrecisionMask, kPrecisionShift));
+  }
+
+  void setPrecision(uint8_t precision) {
+    updateBits(precision, kPrecisionMask, kPrecisionShift);
+  }
+
+  constexpr uint8_t scale() const {
+    return static_cast<uint8_t>(extractBits(kScaleMask, kScaleShift));
+  }
+
+  void setScale(uint8_t scale) {
+    updateBits(scale, kScaleMask, kScaleShift);
+  }
+
+  constexpr uint32_t fieldOffset() const {
+    return static_cast<uint32_t>(
+        extractBits(kFieldOffsetMask, kFieldOffsetShift));
+  }
+
+  void setFieldOffset(uint32_t offset) {
+    updateBits(offset, kFieldOffsetMask, kFieldOffsetShift);
+  }
+
+  constexpr uint16_t nullFlagOffset() const {
+    return static_cast<uint16_t>(
+        extractBits(kNullFlagOffsetMask, kNullFlagOffsetShift));
+  }
+
+  void setNullFlagOffset(uint16_t offset) {
+    updateBits(offset, kNullFlagOffsetMask, kNullFlagOffsetShift);
+  }
+
+  constexpr uint64_t rawData() const {
+    return static_cast<uint64_t>(data);
+  }
+
+  constexpr uint64_t extractBits(uint64_t mask, uint64_t shift) const {
+    return (rawData() & mask) >> shift;
+  }
+
+  void updateBits(uint64_t value, uint64_t mask, uint64_t shift) noexcept {
+    auto raw = rawData();
+    raw = (raw & ~mask) | ((value << shift) & mask);
+    data = static_cast<int64_t>(raw);
+  }
 
   int64_t data{0};
 };
-
 
 class RowContainer2 {
  public:
@@ -148,5 +194,8 @@ class RowContainer2 {
 
   memory::MemoryPool* pool_{nullptr};
 };
+
+
+size_t findBestNullByteIdx(std::vector<size_t>& widths, const std::vector<uint8_t>& nullFlagEncoded) ;
 
 } // namespace bytedance::bolt::exec

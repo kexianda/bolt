@@ -28,6 +28,8 @@
 
 #include "bolt/common/file/FileSystems.h"
 
+#include <array>
+
 using namespace bytedance::bolt::exec;
 using namespace bytedance::bolt::exec::test;
 using namespace bytedance::bolt::functions::aggregate::test;
@@ -35,6 +37,30 @@ using namespace bytedance::bolt::functions::aggregate::test;
 namespace bytedance::bolt::aggregate::test {
 
 namespace {
+
+std::unordered_map<std::string, std::string> spillConfig() {
+  return {
+      {core::QueryConfig::kSpillEnabled, "true"},
+      {core::QueryConfig::kAggregationSpillEnabled, "true"},
+      {core::QueryConfig::kPreferPartialAggregationSpill, "true"},
+      {core::QueryConfig::kTestingSpillPct, "100"},
+      // Force spilling quickly.
+      {core::QueryConfig::kAggregationSpillMemoryThreshold, "1"}};
+}
+
+RowVectorPtr runPlan(
+    const core::PlanNodePtr& plan,
+    const std::unordered_map<std::string, std::string>& config,
+    const std::string& spillDirectory,
+    memory::MemoryPool* pool,
+    std::shared_ptr<exec::Task>& task) {
+  AssertQueryBuilder builder(plan);
+  builder.configs(config);
+  if (!spillDirectory.empty()) {
+    builder.spillDirectory(spillDirectory);
+  }
+  return builder.copyResults(pool, task);
+}
 
 void writeToDwrfFile(
     const std::string& path,
@@ -236,6 +262,179 @@ TEST_F(AggregateSpillTest, allAggregatesWithSpill) {
   EXPECT_GT(stats.at(partialAggNodeId).customStats.count("spillRuns"), 0);
   EXPECT_GT(stats.at(partialAggNodeId).customStats.at("spillRuns").sum, 0);
   OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
+}
+
+TEST_F(AggregateSpillTest, arraySetAndMapAggregatesWithSpill) {
+  // Focused test for complex return types (ARRAY/SET/MAP) with spill enabled.
+  const vector_size_t size = 5'000;
+  auto batch1 = makeRowVector({
+      makeFlatVector<int64_t>(size, [](auto row) { return row % 17; }),
+      makeFlatVector<int32_t>(size, [](auto row) { return row; }),
+      makeFlatVector<int64_t>(size, [](auto row) { return row * 10LL; }),
+  });
+  auto batch2 = makeRowVector({
+      makeFlatVector<int64_t>(size, [](auto row) { return row % 17; }),
+      makeFlatVector<int32_t>(size, [](auto row) { return row + 1'000; }),
+      makeFlatVector<int64_t>(size, [](auto row) { return (row + 1'000) * 10LL; }),
+  });
+  std::vector<RowVectorPtr> inputs = {batch1, batch2};
+
+  core::PlanNodeId partialAggNodeId;
+  auto plan = PlanBuilder()
+                  .values(inputs)
+                  .partialAggregation(
+                      {"c0"},
+                      {
+                          "array_agg(c1)",
+                          "collect_list(c1)",
+                          "set_agg(c1)",
+                          "collect_set(c1)",
+                          // Ensure keys are unique within each group.
+                          "map_agg(c1, c2)",
+                          "multimap_agg(c1, c2)",
+                      })
+                  .capturePlanNodeId(partialAggNodeId)
+                  .finalAggregation()
+                  .planNode();
+
+  auto spillDirectory = TempDirectoryPath::create();
+  std::shared_ptr<exec::Task> spillTask;
+  auto config = spillConfig();
+  config[core::QueryConfig::kHashAdaptivityEnabled] = "false";
+  auto actual = runPlan(
+      plan, config, spillDirectory->path, pool(), spillTask);
+
+  // Basic correctness invariants.
+  ASSERT_EQ(17, actual->size());
+  ASSERT_EQ(7, actual->childrenSize());
+  auto* groupIds = actual->childAt(0)->asFlatVector<int64_t>();
+  auto* arrayAgg = actual->childAt(1)->as<ArrayVector>();
+  auto* collectList = actual->childAt(2)->as<ArrayVector>();
+  auto* setAgg = actual->childAt(3)->as<ArrayVector>();
+  auto* collectSet = actual->childAt(4)->as<ArrayVector>();
+  auto* mapAgg = actual->childAt(5)->as<MapVector>();
+  auto* multiMapAgg = actual->childAt(6)->as<MapVector>();
+  auto* multiMapValues = multiMapAgg->mapValues()->as<ArrayVector>();
+
+  for (auto i = 0; i < actual->size(); ++i) {
+    const auto group = groupIds->valueAt(i);
+    // size % 17 == 2 -> groups 0 and 1 have 295 rows per batch.
+    const vector_size_t expectedCount = (group < 2) ? 590 : 588;
+    EXPECT_EQ(expectedCount, arrayAgg->sizeAt(i));
+    EXPECT_EQ(expectedCount, collectList->sizeAt(i));
+    EXPECT_EQ(expectedCount, setAgg->sizeAt(i));
+    EXPECT_EQ(expectedCount, collectSet->sizeAt(i));
+    // Keys are unique by construction (c1), so map sizes match row counts.
+    EXPECT_EQ(expectedCount, mapAgg->sizeAt(i));
+    EXPECT_EQ(expectedCount, multiMapAgg->sizeAt(i));
+
+    // multimap_agg produces map<K, array<V>> and we used unique keys, hence
+    // each array<V> should contain exactly one element.
+    const auto offset = multiMapAgg->offsetAt(i);
+    const auto count = multiMapAgg->sizeAt(i);
+    for (auto j = 0; j < count; ++j) {
+      EXPECT_EQ(1, multiMapValues->sizeAt(offset + j));
+    }
+  }
+
+  auto stats = exec::toPlanStats(spillTask->taskStats());
+  EXPECT_GT(stats.at(partialAggNodeId).spilledBytes, 0);
+  EXPECT_GT(stats.at(partialAggNodeId).customStats.count("spillRuns"), 0);
+  EXPECT_GT(stats.at(partialAggNodeId).customStats.at("spillRuns").sum, 0);
+  OperatorTestBase::deleteTaskAndCheckSpillDirectory(spillTask);
+}
+
+TEST_F(AggregateSpillTest, groupByThreeStringsAvgAndMaxWithSpill) {
+  // group by str1, str2, str3; avg(double), max(str4) with spill enabled.
+  const std::array<StringView, 10> s1 = {
+      "aaaaaaaaaaaaaaaaaaa"_sv,
+      "bbbbbbbbbbbbbbbb"_sv,
+      "cccccccccccccccc"_sv,
+      "ddddddddddddddddddd"_sv,
+      "eeeeeeeeeeeeeeee"_sv,
+      "ffffffffffffffff"_sv,
+      "ggggggggggggggggggg"_sv,
+      "hhhhhhhhhhhhhhhh"_sv,
+      "iiiiiiiiiiiiiiii"_sv,
+      "jjjjjjjjjjjjjjjj"_sv,
+  };
+  const std::array<StringView, 10> s2 = {
+      "kkkkkkkkkkkkkkkk"_sv,
+      "llllllllllllllll"_sv,
+      "mmmmmmmmmmmmmmmm "_sv,
+      "nnnnnnnnnnnnnnnn"_sv,
+      "oooooooooooooooo"_sv,
+      "pppppppppppppppp"_sv,
+      "qqqqqqqqqqqqqqqq"_sv,
+      "rrrrrrrrrrrrrrrr"_sv,
+      "ssssssssssssssss"_sv,
+      "tttttttttttttttt"_sv,
+  };
+  const std::array<StringView, 10> s3 = {
+      "u"_sv,
+      "v"_sv,
+      "w"_sv,
+      "x"_sv,
+      "y"_sv,
+      "z"_sv,
+      "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu1"_sv,
+      "v1"_sv,
+      "wwwwwwwwwwwwwwwwwwwwww1"_sv,
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx1"_sv,
+  };
+  const std::array<StringView, 6> s4 = {
+      "aa"_sv,
+      "bb"_sv,
+      "cc"_sv,
+      "dd"_sv,
+      "ee"_sv,
+      "ff"_sv,
+  };
+
+  const vector_size_t size = 12'000;
+  auto makeBatch = [&](int32_t base) {
+    return makeRowVector({
+        makeFlatVector<StringView>(
+            size, [&](auto row) { return s1[(row + base) % s1.size()]; }),
+        makeFlatVector<StringView>(
+            size, [&](auto row) { return s2[((row + base) / 10) % s2.size()]; }),
+        makeFlatVector<StringView>(
+            size,
+            [&](auto row) { return s3[((row + base) / 100) % s3.size()]; }),
+        makeFlatVector<double>(
+            size, [&](auto row) { return (row + base) * 0.125; }),
+        makeFlatVector<StringView>(
+            size, [&](auto row) { return s4[(row + base) % s4.size()]; }),
+    });
+  };
+
+  std::vector<RowVectorPtr> inputs = {makeBatch(0), makeBatch(7)};
+
+  core::PlanNodeId partialAggNodeId;
+  auto plan = PlanBuilder()
+                  .values(inputs)
+                  .partialAggregation(
+                      {"c0", "c1", "c2"}, {"avg(c3)", "max(c4)"})
+                  .capturePlanNodeId(partialAggNodeId)
+                  .finalAggregation()
+                  .planNode();
+
+  std::shared_ptr<exec::Task> noSpillTask;
+  auto expected = runPlan(plan, {}, /*spillDirectory*/ "", pool(), noSpillTask);
+
+  auto spillDirectory = TempDirectoryPath::create();
+  std::shared_ptr<exec::Task> spillTask;
+  auto actual = runPlan(
+      plan, spillConfig(), spillDirectory->path, pool(), spillTask);
+
+  assertEqualResults({expected}, {actual});
+
+  auto stats = exec::toPlanStats(spillTask->taskStats());
+  EXPECT_GT(stats.at(partialAggNodeId).spilledBytes, 0);
+  EXPECT_GT(stats.at(partialAggNodeId).customStats.count("spillRuns"), 0);
+  EXPECT_GT(stats.at(partialAggNodeId).customStats.at("spillRuns").sum, 0);
+  noSpillTask.reset();
+  OperatorTestBase::deleteTaskAndCheckSpillDirectory(spillTask);
 }
 
 TEST_F(AggregateSpillTest, aggregationPushdownSimple) {

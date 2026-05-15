@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 
 #include "bolt/common/base/BitUtil.h"
 #include "bolt/type/Type.h"
@@ -36,59 +37,90 @@ static int32_t typeKindSize(TypeKind kind) {
   return BOLT_DYNAMIC_TYPE_DISPATCH(kindSize, kind);
 }
 
-static bool nullBitBuiltInType(TypeKind kind) {
-  return kind == TypeKind::VARCHAR || kind == TypeKind::VARBINARY;
+bool isNullFlagEncoded(TypeKind kind) noexcept {
+  return kind == TypeKind::VARCHAR
+  || kind == TypeKind::VARBINARY
+  || kind == TypeKind::REAL
+  || kind == TypeKind::DOUBLE
+  || kind == TypeKind::TIMESTAMP;
 }
 
+
+
 } // namespace
+
+size_t findBestNullByteIdx(std::vector<size_t>& widths, const std::vector<uint8_t>& nullFlagEncoded) {
+  assert(widths.size() == nullFlagEncoded.size() && widths.size() <= 8);
+  size_t bestNullByteIdx = 0;
+
+  std::vector<size_t> offsets(widths.size());
+  for (auto i = 0; i < widths.size(); i++) {
+    if (i ==0 ) {
+      offsets[i] = widths[i];
+    } else {
+      offsets[i] = offsets[i-1] + widths[i];
+    }
+  }
+
+  size_t minDistanceSum = std::numeric_limits<size_t>::max();
+
+  for (size_t k = 1; k < nullFlagEncoded.size(); k++) {
+    size_t distanceSum = 0;
+    for (auto i = 0; i < nullFlagEncoded.size(); i++) {
+      if (nullFlagEncoded[i] == 0) {
+        if (i < k) {
+          distanceSum += (widths[k - 1] - widths[i]);
+        } else if (i > k) {
+          distanceSum += (widths[i] - widths[k]);
+        }
+      }
+    }
+    if (minDistanceSum > distanceSum) {
+      minDistanceSum = distanceSum;
+      bestNullByteIdx = k;
+    }
+  }
+  return bestNullByteIdx;
+}
 
 RowContainer2::RowContainer2(
     const std::vector<TypePtr>& types,
     memory::MemoryPool* FOLLY_NONNULL pool)
     : pool_(pool) {
   fieldMetas_.clear();
-  fieldMetas_.reserve(types.size());
   constexpr int32_t kCacheLineSize = 64;
 
   int32_t offset = 0;
   int32_t nullOffset = 0;
 
-  int32_t cacheBeginingFieldIndex = 0;
-  // memory layout 如下：
-  // 一个 byte作为8个fields的null flag，紧接着是8个field数据
-  for (size_t i = 0; i < types.size(); ++i) {
-    RowFieldMeta meta;
-    auto typeSize = typeKindSize(types[i]->kind());
 
-
-    meta.setTypeKind(static_cast<int8_t>(types[i]->kind()));
-    meta.setFieldOffset(offset);
-    meta.setNullable(true);
-
-    if (types[i]->kind() == TypeKind::VARCHAR || types[i]->kind() == TypeKind::VARBINARY) {
-      meta.setSvPrefixLen(4);
+  auto findNullByteIdx = [&](size_t startIdx) {
+    int32_t nullBytePosition = 0;
+    for (const auto& type : types) {
+      if (isNullFlagEncoded(type->kind())) {
+        nullBytePosition = nullOffset / 8;
+        nullOffset += 1;
+      }
     }
+    return nullBytePosition;
+  };
 
-    fieldMetas_.push_back(meta);
-    offset += typeSize;
-    ++nullOffset;
+  for (auto i = 0; i < types.size(); i++) {
+    auto kind = types[i]->kind();
+    while (isNullFlagEncoded(kind) && i < types.size()) {
+      RowFieldMeta fieldMeta;
+      offset += typeKindSize(kind);
+      fieldMeta.setTypeKind(kind);
+      fieldMeta.setFieldOffset(offset);
+      fieldMetas_.emplace_back(fieldMeta);
+      ++i;
+    }
+    int32_t nullByteIdx = findNullByteIdx(i);
   }
 
-  // Make offset at least sizeof pointer so there is always room for a pointer
-  // field and to keep the null flags at a predictable offset.
-  offset = std::max<int32_t>(offset, sizeof(void*));
-  const int32_t nullBytesStart = offset;
+  std::vector<int32_t> offsets;
 
-  // Fixup null flag offsets to be bit numbers from the start of the row.
-  for (auto& meta : fieldMetas_) {
-    meta.setNullFlagOffset(meta.getNullFlagOffset() + nullBytesStart * 8);
-  }
-
-  const int32_t nullBytes = bits::nbytes(static_cast<int32_t>(fieldMetas_.size()));
-  offset += nullBytes;
-
-  fixedRowSize_ = bits::roundUp<size_t>(offset, alignof(void*));
+  offsets.insert(offsets.end(), fieldMetas_.size(), 0);
 }
 
 } // namespace bytedance::bolt::exec
-

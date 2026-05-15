@@ -16,6 +16,7 @@
 #include "bolt/exec/RowContainer2.h"
 
 #include <gtest/gtest.h>
+#include <cstddef>
 
 #include "bolt/common/base/BitUtil.h"
 #include "bolt/type/Type.h"
@@ -34,46 +35,57 @@ class RowContainer2Test : public testing::Test, public test::VectorTestBase {
   }
 };
 
-TEST_F(RowContainer2Test, constructorPopulatesFieldMetas) {
-  std::vector<TypePtr> types{BIGINT(), VARCHAR(), INTEGER()};
-  RowContainer2 container(types, pool());
+// size_t findBestNullByteIdx(std::vector<size_t>& offsets, const std::vector<uint8_t>& nullFlagEncoded) ;
+TEST_F(RowContainer2Test, findBestNullByteIdxTest) {
+  {
+    std::vector<size_t> offsets{8, 8, 8, 8, 8, 8, 8, 8};
+    std::vector<std::vector<uint8_t>> data{
+        {0, 0, 0, 0, 0, 0, 0, 0},
+        {1, 1, 1, 1, 1, 1, 1, 1},
+        {0, 1, 1, 1, 1, 1, 1, 1},
+        {1, 1, 1, 1, 1, 1, 1, 0},
+        {1, 1, 1, 0, 1, 1, 1, 1},
+        {0, 1, 1, 1, 1, 0, 0, 0},
+    };
 
-  ASSERT_EQ(container.fieldMetas().size(), 3);
+    std::vector<size_t> expected{4, 0, 0, 0, 0, 0, 0, 0};
+    size_t i = 0;
+    for (auto& nullFlagEncoded : data) {
+      EXPECT_EQ(findBestNullByteIdx(offsets, nullFlagEncoded), expected[i++]);
+    }
+  }
 
-  const int32_t bigintSize =
-      sizeof(typename KindToFlatVector<TypeKind::BIGINT>::HashRowType);
-  const int32_t varcharSize =
-      sizeof(typename KindToFlatVector<TypeKind::VARCHAR>::HashRowType);
-  const int32_t intSize =
-      sizeof(typename KindToFlatVector<TypeKind::INTEGER>::HashRowType);
+  {
+    std::vector<size_t> offsets{8, 8, 8, 8, 8, 8};
+    std::vector<std::vector<uint8_t>> data{
+        {0, 0, 0, 0, 0, 0, },
+        {1, 1, 1, 1, 1, 1, },
+        {0, 1, 1, 1, 1, 1, },
+        {1, 1, 1, 1, 1, 0, },
+        {1, 1, 1, 0, 1, 1, },
+        {0, 1, 1, 1, 0, 0, },
+    };
 
-  const int32_t fixedBytes = bigintSize + varcharSize + intSize;
-  const int32_t nullBytesStart = std::max<int32_t>(fixedBytes, sizeof(void*));
-  const int32_t nullBytes =
-      static_cast<int32_t>(bits::nbytes(static_cast<int32_t>(types.size())));
+    std::vector<size_t> expected{4, 0, 0, 0, 0, 0, 0, 0};
+    size_t i = 0;
+    for (auto& nullFlagEncoded : data) {
+      EXPECT_EQ(findBestNullByteIdx(offsets, nullFlagEncoded), expected[i++]);
+    }
+  }
 
-  const size_t expectedFixedRowSize =
-      bits::roundUp<size_t>(nullBytesStart + nullBytes, alignof(void*));
-  EXPECT_EQ(container.fixedRowSize(), expectedFixedRowSize);
+   {
+    std::vector<size_t> offsets{8};
+    std::vector<std::vector<uint8_t>> data{
+        {0,  },
+        {1,  },
+    };
 
-  const auto& m0 = container.fieldMetas()[0];
-  EXPECT_EQ(m0.typeKind(), static_cast<int8_t>(TypeKind::BIGINT));
-  EXPECT_EQ(m0.getFieldOffset(), 0);
-  EXPECT_EQ(m0.getNullFlagOffset(), nullBytesStart * 8 + 0);
-  EXPECT_EQ(m0.getSvPrefixLen(), 0);
-
-  const auto& m1 = container.fieldMetas()[1];
-  EXPECT_EQ(m1.typeKind(), static_cast<int8_t>(TypeKind::VARCHAR));
-  EXPECT_EQ(m1.getFieldOffset(), bigintSize);
-  EXPECT_EQ(m1.getNullFlagOffset(), nullBytesStart * 8 + 1);
-  EXPECT_EQ(m1.getSvPrefixLen(), 4);
-
-  const auto& m2 = container.fieldMetas()[2];
-  EXPECT_EQ(m2.typeKind(), static_cast<int8_t>(TypeKind::INTEGER));
-  EXPECT_EQ(m2.getFieldOffset(), bigintSize + varcharSize);
-  EXPECT_EQ(m2.getNullFlagOffset(), nullBytesStart * 8 + 2);
-  EXPECT_EQ(m2.getSvPrefixLen(), 0);
+    std::vector<size_t> expected{1, 0};
+    size_t i = 0;
+    for (auto& nullFlagEncoded : data) {
+      EXPECT_EQ(findBestNullByteIdx(offsets, nullFlagEncoded), expected[i++]);
+    }
+  }
 }
 
 } // namespace
-

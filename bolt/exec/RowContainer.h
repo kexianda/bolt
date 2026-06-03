@@ -118,7 +118,8 @@ struct RowContainerParam {
   bool hasNormalizedKeys;
   bool useListRowIndex;
 
-  bool appendOnly;
+  bool appendOnly {false};
+  bool useRealloc {false};
   memory::MemoryPool* pool;
   std::shared_ptr<HashStringAllocator> stringAllocator;
 };
@@ -229,6 +230,20 @@ class RowContainer {
  public:
   static constexpr uint64_t kUnlimited = std::numeric_limits<uint64_t>::max();
   using Eraser = std::function<void(folly::Range<char**> rows)>;
+
+  class PointerSwizzler {
+   public:
+    explicit PointerSwizzler(RowContainer& container) : container_(container) {}
+
+    void unswizzlePointers();
+
+   private:
+    void unswizzleStringViewColumn(RowColumn column);
+
+    void unswizzleStringView(StringView& value);
+
+    RowContainer& container_;
+  };
 
   /// 'keyTypes' gives the type of row and use 'allocator' for bulk
   /// allocation.
@@ -1091,7 +1106,12 @@ class RowContainer {
       return;
     }
     if constexpr (std::is_same_v<T, StringView>) {
-      storeStringView(decoded.valueAt<T>(index), row, offset);
+      if (appendOnly_) {
+        storeStringViewAppendOnly(decoded.valueAt<T>(index), row, offset);
+      } else {
+        RowSizeTracker tracker(row[rowSizeOffset_], *stringAllocator_);
+        stringAllocator_->copyMultipart(decoded.valueAt<T>(index), row, offset);
+      }
     } else {
       *reinterpret_cast<T*>(row + offset) = decoded.valueAt<T>(index);
     }
@@ -1106,7 +1126,12 @@ class RowContainer {
       int32_t offset) {
     using T = typename TypeTraits<Kind>::NativeType;
     if constexpr (std::is_same_v<T, StringView>) {
-      storeStringView(decoded.valueAt<T>(index), group, offset);
+      if (appendOnly_) {
+        storeStringViewAppendOnly(decoded.valueAt<T>(index), group, offset);
+      } else {
+        RowSizeTracker tracker(group[rowSizeOffset_], *stringAllocator_);
+        stringAllocator_->copyMultipart(decoded.valueAt<T>(index), group, offset);
+      }
     } else {
       *reinterpret_cast<T*>(group + offset) = decoded.valueAt<T>(index);
     }
@@ -1466,11 +1491,7 @@ class RowContainer {
 
   char* allocateAppendOnlyString(int32_t size);
 
-  void storeStringView(StringView value, char* row, int32_t offset);
-
   void storeStringViewAppendOnly(StringView value, char* row, int32_t offset);
-
-  void storeStringViewWithAllocator(StringView value, char* row, int32_t offset);
 
   uint64_t rowBufferAllocatedBytes() const;
 
@@ -1493,6 +1514,7 @@ class RowContainer {
   bool mutable_{true};
 
   bool appendOnly_{false};
+  bool useRealloc_{false};
 
   std::vector<Accumulator> accumulators_;
 
@@ -1549,9 +1571,11 @@ class RowContainer {
   std::vector<char*, StlAllocator<char*>> rowPointers_;
 
   std::vector<BufferPtr> rowsBuffers_;
+  char* currRowsBufferBegin_{nullptr};
   char* currRowsBufferPosition_{nullptr};
   char* currRowsBufferEnd_{nullptr};
   std::vector<BufferPtr> stringBuffers_;
+  char* currStringBufferBegin_{nullptr};
   char* currStringPosition_{nullptr};
   char* currStringBufferEnd_{nullptr};
 

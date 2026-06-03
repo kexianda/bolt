@@ -99,8 +99,7 @@ static int32_t typeKindSize(TypeKind kind) {
 __attribute__((__no_sanitize__("thread")))
 #endif
 #endif
-inline void
-setBit(char* bits, uint32_t idx) {
+inline void setBit(char* bits, uint32_t idx) {
   auto bitsAs8Bit = reinterpret_cast<uint8_t*>(bits);
   bitsAs8Bit[idx / 8] |= (1 << (idx % 8));
 }
@@ -380,6 +379,7 @@ RowContainer::RowContainer(const RowContainerParam& param)
           param.pool,
           param.stringAllocator) {
   appendOnly_ = param.appendOnly;
+  useRealloc_ = param.useRealloc;
 }
 
 RowContainer::~RowContainer() {
@@ -397,7 +397,7 @@ char* RowContainer::newRow() {
       row = currRowsBufferPosition_ + normalizedKeySize_;
       currRowsBufferPosition_ += size;
     } else {
-      if (!rowsBuffers_.empty() &&
+      if (useRealloc_ && (!rowsBuffers_.empty()) &&
           rowsBuffers_.back()->size() < kMaxAppendOnlyRowsBufferSize) {
         auto& buffer = rowsBuffers_.back();
         const auto usedBytes =
@@ -405,12 +405,15 @@ char* RowContainer::newRow() {
         const auto newSize =
             std::max<int64_t>(buffer->size() * 2, usedBytes + size);
         AlignedBuffer::reallocate<char>(&buffer, newSize);
+        currRowsBufferBegin_ = buffer->asMutable<char>();
         currRowsBufferPosition_ = buffer->asMutable<char>() + usedBytes;
         currRowsBufferEnd_ = buffer->asMutable<char>() + buffer->size();
       } else {
-        rowsBuffers_.push_back(AlignedBuffer::allocate<char>(
-            std::max<int64_t>(kInitialAppendOnlyRowsBufferSize, size),
-            rows_.pool()));
+        rowsBuffers_.emplace_back(
+            AlignedBuffer::allocate<char>(
+                std::max<int64_t>(kInitialAppendOnlyRowsBufferSize, size),
+                rows_.pool()));
+        currRowsBufferBegin_ = rowsBuffers_.back()->asMutable<char>();
         currRowsBufferPosition_ = rowsBuffers_.back()->asMutable<char>();
         currRowsBufferEnd_ =
             currRowsBufferPosition_ + rowsBuffers_.back()->size();
@@ -470,20 +473,24 @@ char* RowContainer::allocateAppendOnlyString(int32_t size) {
   const auto allocationSize =
       bits::roundUp<int32_t>(sizeof(Header) + size, alignof(Header));
   if (!currStringPosition_ ||
-        currStringPosition_ + allocationSize >= currStringBufferEnd_) {
-    if (!stringBuffers_.empty() &&
+      currStringPosition_ + allocationSize >= currStringBufferEnd_) {
+    if (useRealloc_ && (!stringBuffers_.empty()) &&
         stringBuffers_.back()->size() < kMaxAppendOnlyRowsBufferSize) {
       auto& buffer = stringBuffers_.back();
       const auto usedBytes = currStringPosition_ - buffer->asMutable<char>();
       const auto newSize =
           std::max<int64_t>(buffer->size() * 2, usedBytes + allocationSize);
       AlignedBuffer::reallocate<char>(&buffer, newSize);
+      currStringBufferBegin_ = buffer->asMutable<char>();
       currStringPosition_ = buffer->asMutable<char>() + usedBytes;
       currStringBufferEnd_ = buffer->asMutable<char>() + buffer->size();
     } else {
-      stringBuffers_.push_back(AlignedBuffer::allocate<char>(
-          std::max<int64_t>(kInitialAppendOnlyRowsBufferSize, allocationSize),
-          rows_.pool()));
+      stringBuffers_.emplace_back(
+          AlignedBuffer::allocate<char>(
+              std::max<int64_t>(
+                  kInitialAppendOnlyRowsBufferSize, allocationSize),
+              rows_.pool()));
+      currStringBufferBegin_ = stringBuffers_.back()->asMutable<char>();
       currStringPosition_ = stringBuffers_.back()->asMutable<char>();
       currStringBufferEnd_ =
           currStringPosition_ + stringBuffers_.back()->size();
@@ -493,14 +500,6 @@ char* RowContainer::allocateAppendOnlyString(int32_t size) {
   auto* header = new (currStringPosition_) Header(size);
   currStringPosition_ += allocationSize;
   return header->begin();
-}
-
-void RowContainer::storeStringView(StringView value, char* row, int32_t offset) {
-  if (appendOnly_) {
-    storeStringViewAppendOnly(value, row, offset);
-  } else {
-    storeStringViewWithAllocator(value, row, offset);
-  }
 }
 
 void RowContainer::storeStringViewAppendOnly(
@@ -515,17 +514,91 @@ void RowContainer::storeStringViewAppendOnly(
   auto* data = allocateAppendOnlyString(value.size());
   memcpy(data, value.data(), value.size());
   valueAt<StringView>(row, offset) = StringView(data, value.size());
+
+  // // Set as offset
+  // auto* offsetPtr = reinterpret_cast<int64_t*>(
+  //     row + offset +
+  //     static_cast<int32_t>(sizeof(StringView) - sizeof(int64_t)));
+  // *offsetPtr = (stringBuffers_.size() << 32) | (data - currStringBufferBegin_);
+
   if (rowSizeOffset_) {
     incrementRowSize(row, value.size());
   }
 }
 
-void RowContainer::storeStringViewWithAllocator(
-    StringView value,
-    char* row,
-    int32_t offset) {
-  RowSizeTracker tracker(row[rowSizeOffset_], *stringAllocator_);
-  stringAllocator_->copyMultipart(value, row, offset);
+void RowContainer::PointerSwizzler::unswizzlePointers() {
+  BOLT_CHECK(
+      container_.appendOnly_,
+      "PointerSwizzler only supports append-only RowContainer");
+
+  for (auto i = 0; i < container_.typeKinds_.size(); ++i) {
+    switch (container_.typeKinds_[i]) {
+      case TypeKind::VARCHAR:
+      case TypeKind::VARBINARY:
+        unswizzleStringViewColumn(container_.columnAt(i));
+        break;
+      default:
+        break;
+    }
+  }
+}
+
+void RowContainer::PointerSwizzler::unswizzleStringViewColumn(
+    RowColumn column) {
+  uint64_t rowsLeft = container_.numRows_;
+  int64_t normalizedKeysLeft = container_.numRowsWithNormalizedKey_;
+
+  for (auto i = 0; i < container_.rowsBuffers_.size() && rowsLeft > 0; ++i) {
+    auto* bufferBegin = container_.rowsBuffers_[i]->asMutable<char>();
+    auto* position = bufferBegin;
+    auto* bufferEnd = i == container_.rowsBuffers_.size() - 1
+        ? container_.currRowsBufferPosition_
+        : bufferBegin + container_.rowsBuffers_[i]->size();
+
+    while (rowsLeft > 0) {
+      const auto normalizedKeySize = normalizedKeysLeft > 0
+          ? container_.originalNormalizedKeySize_
+          : 0;
+      const auto rowSize = container_.fixedRowSize_ + normalizedKeySize;
+      if (position + rowSize > bufferEnd) {
+        break;
+      }
+
+      auto* row = position + normalizedKeySize;
+      if (!RowContainer::isNullAt(row, column)) {
+        unswizzleStringView(
+            RowContainer::valueAt<StringView>(row, column.offset()));
+      }
+
+      position += rowSize;
+      --rowsLeft;
+      if (normalizedKeysLeft > 0) {
+        --normalizedKeysLeft;
+      }
+    }
+  }
+
+  BOLT_DCHECK_EQ(rowsLeft, 0);
+}
+
+void RowContainer::PointerSwizzler::unswizzleStringView(StringView& value) {
+  if (value.isInline()) {
+    return;
+  }
+
+  const auto dataAddress = reinterpret_cast<uintptr_t>(value.data());
+  for (uint64_t i = 0; i < container_.stringBuffers_.size(); ++i) {
+    const auto bufferBegin = reinterpret_cast<uintptr_t>(
+        container_.stringBuffers_[i]->asMutable<char>());
+    const auto bufferEnd = bufferBegin + container_.stringBuffers_[i]->size();
+    if (dataAddress >= bufferBegin && dataAddress < bufferEnd) {
+      const auto offset = dataAddress - bufferBegin;
+      reinterpret_cast<uint64_t*>(&value)[1] = (i << 32) | offset;
+      return;
+    }
+  }
+
+  BOLT_CHECK(false, "StringView data pointer doesn't belong to RowContainer");
 }
 
 void RowContainer::eraseRows(folly::Range<char**> rows) {
@@ -791,7 +864,14 @@ int32_t RowContainer::storeVariableSizeAt(
 
   if (typeKind == TypeKind::VARCHAR || typeKind == TypeKind::VARBINARY) {
     if (size > 0) {
-      storeStringView(StringView(data + 4, size), row, rowColumn.offset());
+      if (appendOnly_) {
+        storeStringViewAppendOnly(
+            StringView(data + 4, size), row, rowColumn.offset());
+      } else {
+        RowSizeTracker tracker(row[rowSizeOffset_], *stringAllocator_);
+        stringAllocator_->copyMultipart(
+            StringView(data + 4, size), row, rowColumn.offset());
+      }
     } else {
       valueAt<StringView>(row, rowColumn.offset()) = StringView();
     }
@@ -1251,9 +1331,11 @@ void RowContainer::clear() {
   }
   rows_.clear();
   rowsBuffers_.clear();
+  currRowsBufferBegin_ = nullptr;
   currRowsBufferPosition_ = nullptr;
   currRowsBufferEnd_ = nullptr;
   stringBuffers_.clear();
+  currStringBufferBegin_ = nullptr;
   currStringPosition_ = nullptr;
   currStringBufferEnd_ = nullptr;
   rowPointers_.clear();
@@ -1849,9 +1931,8 @@ int32_t HybridContainer::fixedSizeAt(column_index_t column) const {
 extern "C" {
 
 // An wrapper, called by LLVM IR.
-__attribute__((__visibility__("default"))) int32_t jit_StringViewCompareWrapper(
-    char* l,
-    char* r) {
+__attribute__((__visibility__("default"))) int32_t
+jit_StringViewCompareWrapper(char* l, char* r) {
   bytedance::bolt::StringView left = *(bytedance::bolt::StringView*)l;
   bytedance::bolt::StringView right = *(bytedance::bolt::StringView*)r;
 
@@ -1869,8 +1950,9 @@ __attribute__((__visibility__("default"))) int32_t jit_StringViewCompareWrapper(
     std::string rightStorage;
     return bytedance::bolt::HashStringAllocator::contiguousString(
                left, leftStorage)
-        .compare(bytedance::bolt::HashStringAllocator::contiguousString(
-            right, rightStorage));
+        .compare(
+            bytedance::bolt::HashStringAllocator::contiguousString(
+                right, rightStorage));
   }
 }
 
@@ -1931,9 +2013,8 @@ jit_RowBased_ComplexTypeRowCmpRow(
       {static_cast<bool>(nullFirst), static_cast<bool>(ascending), false});
 }
 
-__attribute__((__visibility__("default"))) int8_t jit_StringViewRowEqVectors(
-    char* l,
-    char* r) {
+__attribute__((__visibility__("default"))) int8_t
+jit_StringViewRowEqVectors(char* l, char* r) {
   bytedance::bolt::StringView left = *(bytedance::bolt::StringView*)l;
   bytedance::bolt::StringView right = *(bytedance::bolt::StringView*)r;
 
@@ -1942,37 +2023,32 @@ __attribute__((__visibility__("default"))) int8_t jit_StringViewRowEqVectors(
              .compare(right) == 0;
 }
 
-__attribute__((__visibility__("default"))) int8_t jit_GetDecodedValueBool(
-    char* vec,
-    int32_t index) {
+__attribute__((__visibility__("default"))) int8_t
+jit_GetDecodedValueBool(char* vec, int32_t index) {
   return reinterpret_cast<bytedance::bolt::DecodedVector*>(vec)->valueAt<bool>(
       index);
 }
 
-__attribute__((__visibility__("default"))) int8_t jit_GetDecodedValueI8(
-    char* vec,
-    int32_t index) {
+__attribute__((__visibility__("default"))) int8_t
+jit_GetDecodedValueI8(char* vec, int32_t index) {
   return reinterpret_cast<bytedance::bolt::DecodedVector*>(vec)
       ->valueAt<int8_t>(index);
 }
 
-__attribute__((__visibility__("default"))) int16_t jit_GetDecodedValueI16(
-    char* vec,
-    int32_t index) {
+__attribute__((__visibility__("default"))) int16_t
+jit_GetDecodedValueI16(char* vec, int32_t index) {
   return reinterpret_cast<bytedance::bolt::DecodedVector*>(vec)
       ->valueAt<int16_t>(index);
 }
 
-__attribute__((__visibility__("default"))) int32_t jit_GetDecodedValueI32(
-    char* vec,
-    int32_t index) {
+__attribute__((__visibility__("default"))) int32_t
+jit_GetDecodedValueI32(char* vec, int32_t index) {
   return reinterpret_cast<bytedance::bolt::DecodedVector*>(vec)
       ->valueAt<int32_t>(index);
 }
 
-__attribute__((__visibility__("default"))) int64_t jit_GetDecodedValueI64(
-    char* vec,
-    int32_t index) {
+__attribute__((__visibility__("default"))) int64_t
+jit_GetDecodedValueI64(char* vec, int32_t index) {
   return reinterpret_cast<bytedance::bolt::DecodedVector*>(vec)
       ->valueAt<int64_t>(index);
 }
@@ -2017,9 +2093,8 @@ jit_CmpRowVecTimestamp(char* vec, int32_t index, char* rowPtr) {
 }
 
 // jit_GetDecodedIsNull
-__attribute__((__visibility__("default"))) int8_t jit_GetDecodedIsNull(
-    char* vec,
-    int32_t index) {
+__attribute__((__visibility__("default"))) int8_t
+jit_GetDecodedIsNull(char* vec, int32_t index) {
   return reinterpret_cast<bytedance::bolt::DecodedVector*>(vec)->isNullAt(
       index);
 }

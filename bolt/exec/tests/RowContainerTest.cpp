@@ -364,6 +364,7 @@ class RowContainerTest : public exec::test::RowContainerTestBase,
         false, // hasNormalizedKeys
         false, // useListRowIndex
         true, // appendOnly
+        false, // useRealloc
         pool_.get(),
         nullptr};
     auto rowContainer = std::make_unique<RowContainer>(param);
@@ -836,6 +837,68 @@ TEST_F(RowContainerTest, appendOnlyStoreExtractVarchar) {
       strings.size(), [&](auto row) { return StringView(strings[row]); });
 
   roundTripAppendOnly(input);
+}
+
+TEST_F(RowContainerTest, appendOnlyPointerSwizzler) {
+  std::vector<std::string> strings{
+      "short",
+      "varchar_value_longer_than_inline_storage",
+      "another_long_varchar_value_for_append_only",
+      "yet_another_long_varchar_value_for_append_only"};
+
+  auto input = vectorMaker_.flatVector<StringView>(
+      strings.size(), [&](auto row) { return StringView(strings[row]); });
+
+  std::vector<TypePtr> types{VARCHAR()};
+  std::vector<Accumulator> accumulators;
+  std::vector<TypePtr> dependentTypes;
+  RowContainerParam param{
+      types,
+      accumulators,
+      dependentTypes,
+      true, // nullableKeys
+      false, // hasNext
+      false, // isJoinBuild
+      false, // hasProbedFlag
+      false, // hasNormalizedKeys
+      false, // useListRowIndex
+      true, // appendOnly
+      false, // useRealloc
+      pool_.get(),
+      nullptr};
+  RowContainer rowContainer(param);
+
+  DecodedVector decoded(*input);
+  auto rows = store(rowContainer, decoded, input->size());
+  RowContainer::RowPointerSwizzler rowPointerSwizzler(&rowContainer);
+
+  std::vector<std::optional<uint64_t>> expectedOffsets(rows.size());
+  for (auto i = 0; i < rows.size(); ++i) {
+    auto& value = RowContainer::valueAt<StringView>(
+        rows[i], rowContainer.columnAt(0).offset());
+    if (value.isInline()) {
+      continue;
+    }
+
+    size_t bufferIndex;
+    size_t offset;
+    rowPointerSwizzler.findBufferIndexAndOffset(
+        const_cast<char*>(value.data()), bufferIndex, offset);
+    expectedOffsets[i] = (bufferIndex << 32) | offset;
+  }
+
+  RowContainer::PointerSwizzler(rowContainer).unswizzlePointers();
+
+  for (auto i = 0; i < rows.size(); ++i) {
+    auto& value = RowContainer::valueAt<StringView>(
+        rows[i], rowContainer.columnAt(0).offset());
+    if (expectedOffsets[i].has_value()) {
+      EXPECT_EQ(
+          expectedOffsets[i].value(), reinterpret_cast<uint64_t*>(&value)[1]);
+    } else {
+      EXPECT_TRUE(value.isInline());
+    }
+  }
 }
 
 TEST_F(RowContainerTest, appendOnlyStoreExtractComplexType) {

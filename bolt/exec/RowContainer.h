@@ -231,6 +231,8 @@ class RowContainer {
   static constexpr uint64_t kUnlimited = std::numeric_limits<uint64_t>::max();
   using Eraser = std::function<void(folly::Range<char**> rows)>;
 
+  class RowPointerSwizzler;
+
   class PointerSwizzler {
    public:
     explicit PointerSwizzler(RowContainer& container) : container_(container) {}
@@ -238,11 +240,37 @@ class RowContainer {
     void unswizzlePointers();
 
    private:
-    void unswizzleStringViewColumn(RowColumn column);
+    void unswizzleStringViewColumn(
+        RowColumn column,
+        RowPointerSwizzler& pointerSwizzler);
 
-    void unswizzleStringView(StringView& value);
+    void unswizzleStringView(
+        StringView& value,
+        RowPointerSwizzler& pointerSwizzler);
 
     RowContainer& container_;
+  };
+
+  class RowPointerSwizzler {
+   public:
+    explicit RowPointerSwizzler(RowContainer* rowContainer);
+
+    void findBufferIndexAndOffset(
+        void* ptr,
+        size_t& bufferIndex,
+        size_t& offset);
+
+   private:
+    struct BufferRange {
+      uintptr_t begin;
+      uintptr_t end;
+      size_t index;
+    };
+
+    std::vector<BufferRange> sortedBuffers_;
+    uintptr_t lastBufferBegin_{0};
+    uintptr_t lastBufferEnd_{0};
+    size_t lastBufferIndex_{0};
   };
 
   /// 'keyTypes' gives the type of row and use 'allocator' for bulk

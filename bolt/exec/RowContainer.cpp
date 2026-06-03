@@ -28,6 +28,7 @@
  * --------------------------------------------------------------------------
  */
 
+#include <algorithm>
 #include <cstring>
 #include <sstream>
 #include <utility>
@@ -526,16 +527,67 @@ void RowContainer::storeStringViewAppendOnly(
   }
 }
 
+RowContainer::RowPointerSwizzler::RowPointerSwizzler(
+    RowContainer* rowContainer) {
+  BOLT_CHECK_NOT_NULL(rowContainer);
+  sortedBuffers_.reserve(rowContainer->stringBuffers_.size());
+  for (size_t i = 0; i < rowContainer->stringBuffers_.size(); ++i) {
+    auto* begin = rowContainer->stringBuffers_[i]->asMutable<char>();
+    sortedBuffers_.push_back({
+        reinterpret_cast<uintptr_t>(begin),
+        reinterpret_cast<uintptr_t>(
+            begin + rowContainer->stringBuffers_[i]->size()),
+        i});
+  }
+  std::ranges::sort(sortedBuffers_, [](const auto& left, const auto& right) {
+    return left.begin < right.begin;
+  });
+}
+
+void RowContainer::RowPointerSwizzler::findBufferIndexAndOffset(
+    void* ptr,
+    size_t& bufferIndex,
+    size_t& offset) {
+  const auto address = reinterpret_cast<uintptr_t>(ptr);
+  if (address >= lastBufferBegin_ && address < lastBufferEnd_) {
+    bufferIndex = lastBufferIndex_;
+    offset = address - lastBufferBegin_;
+    return;
+  }
+
+  auto it = std::upper_bound(
+      sortedBuffers_.begin(),
+      sortedBuffers_.end(),
+      address,
+      [](uintptr_t value, const BufferRange& range) {
+        return value < range.begin;
+      });
+  BOLT_CHECK(
+      it != sortedBuffers_.begin(), "Pointer doesn't belong to RowContainer");
+  --it;
+  BOLT_CHECK(
+      address >= it->begin && address < it->end,
+      "Pointer doesn't belong to RowContainer");
+
+  lastBufferBegin_ = it->begin;
+  lastBufferEnd_ = it->end;
+  lastBufferIndex_ = it->index;
+  bufferIndex = it->index;
+  offset = address - it->begin;
+}
+
 void RowContainer::PointerSwizzler::unswizzlePointers() {
   BOLT_CHECK(
       container_.appendOnly_,
       "PointerSwizzler only supports append-only RowContainer");
 
+  RowPointerSwizzler pointerSwizzler(&container_);
+
   for (auto i = 0; i < container_.typeKinds_.size(); ++i) {
     switch (container_.typeKinds_[i]) {
       case TypeKind::VARCHAR:
       case TypeKind::VARBINARY:
-        unswizzleStringViewColumn(container_.columnAt(i));
+        unswizzleStringViewColumn(container_.columnAt(i), pointerSwizzler);
         break;
       default:
         break;
@@ -544,7 +596,8 @@ void RowContainer::PointerSwizzler::unswizzlePointers() {
 }
 
 void RowContainer::PointerSwizzler::unswizzleStringViewColumn(
-    RowColumn column) {
+    RowColumn column,
+    RowPointerSwizzler& pointerSwizzler) {
   uint64_t rowsLeft = container_.numRows_;
   int64_t normalizedKeysLeft = container_.numRowsWithNormalizedKey_;
 
@@ -567,7 +620,8 @@ void RowContainer::PointerSwizzler::unswizzleStringViewColumn(
       auto* row = position + normalizedKeySize;
       if (!RowContainer::isNullAt(row, column)) {
         unswizzleStringView(
-            RowContainer::valueAt<StringView>(row, column.offset()));
+            RowContainer::valueAt<StringView>(row, column.offset()),
+            pointerSwizzler);
       }
 
       position += rowSize;
@@ -581,24 +635,18 @@ void RowContainer::PointerSwizzler::unswizzleStringViewColumn(
   BOLT_DCHECK_EQ(rowsLeft, 0);
 }
 
-void RowContainer::PointerSwizzler::unswizzleStringView(StringView& value) {
+void RowContainer::PointerSwizzler::unswizzleStringView(
+    StringView& value,
+    RowPointerSwizzler& pointerSwizzler) {
   if (value.isInline()) {
     return;
   }
 
-  const auto dataAddress = reinterpret_cast<uintptr_t>(value.data());
-  for (uint64_t i = 0; i < container_.stringBuffers_.size(); ++i) {
-    const auto bufferBegin = reinterpret_cast<uintptr_t>(
-        container_.stringBuffers_[i]->asMutable<char>());
-    const auto bufferEnd = bufferBegin + container_.stringBuffers_[i]->size();
-    if (dataAddress >= bufferBegin && dataAddress < bufferEnd) {
-      const auto offset = dataAddress - bufferBegin;
-      reinterpret_cast<uint64_t*>(&value)[1] = (i << 32) | offset;
-      return;
-    }
-  }
-
-  BOLT_CHECK(false, "StringView data pointer doesn't belong to RowContainer");
+  size_t bufferIndex;
+  size_t offset;
+  pointerSwizzler.findBufferIndexAndOffset(
+      const_cast<char*>(value.data()), bufferIndex, offset);
+  reinterpret_cast<uint64_t*>(&value)[1] = (bufferIndex << 32) | offset;
 }
 
 void RowContainer::eraseRows(folly::Range<char**> rows) {

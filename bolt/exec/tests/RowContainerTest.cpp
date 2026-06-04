@@ -901,6 +901,72 @@ TEST_F(RowContainerTest, appendOnlyPointerSwizzler) {
   }
 }
 
+TEST_F(RowContainerTest, appendOnlyPointerSwizzlerLargeStringView) {
+  constexpr vector_size_t kNumRows = 64;
+  constexpr size_t kLargeStringSize = 512 * 1024;
+  std::string largeString(kLargeStringSize, 'x');
+
+  auto input = vectorMaker_.flatVector<StringView>(
+      kNumRows, [&](auto /*row*/) { return StringView(largeString); });
+
+  std::vector<TypePtr> types{VARCHAR()};
+  std::vector<Accumulator> accumulators;
+  std::vector<TypePtr> dependentTypes;
+  RowContainerParam param{
+      types,
+      accumulators,
+      dependentTypes,
+      true, // nullableKeys
+      false, // hasNext
+      false, // isJoinBuild
+      false, // hasProbedFlag
+      false, // hasNormalizedKeys
+      false, // useListRowIndex
+      true, // appendOnly
+      false, // useRealloc
+      pool_.get(),
+      nullptr};
+  RowContainer rowContainer(param);
+
+  DecodedVector decoded(*input);
+  auto rows = store(rowContainer, decoded, input->size());
+  auto& value = RowContainer::valueAt<StringView>(
+      rows[0], rowContainer.columnAt(0).offset());
+  ASSERT_FALSE(value.isInline());
+  ASSERT_EQ(value.size(), kLargeStringSize);
+
+  RowContainer::RowPointerSwizzler rowPointerSwizzler(&rowContainer);
+  size_t bufferIndex;
+  size_t offset;
+  rowPointerSwizzler.findBufferIndexAndOffset(
+      const_cast<char*>(value.data()), bufferIndex, offset);
+
+  size_t endBufferIndex;
+  size_t endOffset;
+  rowPointerSwizzler.findBufferIndexAndOffset(
+      const_cast<char*>(value.data() + value.size() - 1),
+      endBufferIndex,
+      endOffset);
+  EXPECT_EQ(bufferIndex, endBufferIndex);
+  EXPECT_EQ(offset + kLargeStringSize - 1, endOffset);
+
+  auto& lastValue = RowContainer::valueAt<StringView>(
+      rows.back(), rowContainer.columnAt(0).offset());
+  ASSERT_FALSE(lastValue.isInline());
+  ASSERT_EQ(lastValue.size(), kLargeStringSize);
+  size_t lastBufferIndex;
+  size_t lastOffset;
+  rowPointerSwizzler.findBufferIndexAndOffset(
+      const_cast<char*>(lastValue.data()), lastBufferIndex, lastOffset);
+
+  RowContainer::PointerSwizzler(rowContainer).unswizzlePointers();
+  EXPECT_EQ(
+      (bufferIndex << 32) | offset, reinterpret_cast<uint64_t*>(&value)[1]);
+  EXPECT_EQ(
+      (lastBufferIndex << 32) | lastOffset,
+      reinterpret_cast<uint64_t*>(&lastValue)[1]);
+}
+
 TEST_F(RowContainerTest, appendOnlyStoreExtractComplexType) {
   std::vector<std::string> strings{
       "array_value_longer_than_inline_storage",

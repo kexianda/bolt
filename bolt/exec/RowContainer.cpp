@@ -562,10 +562,10 @@ void RowContainer::RowPointerSwizzler::findBufferIndexAndOffset(
       [](uintptr_t value, const BufferRange& range) {
         return value < range.begin;
       });
-  BOLT_CHECK(
+  BOLT_DCHECK(
       it != sortedBuffers_.begin(), "Pointer doesn't belong to RowContainer");
   --it;
-  BOLT_CHECK(
+  BOLT_DCHECK(
       address >= it->begin && address < it->end,
       "Pointer doesn't belong to RowContainer");
 
@@ -576,6 +576,8 @@ void RowContainer::RowPointerSwizzler::findBufferIndexAndOffset(
   offset = address - it->begin;
 }
 
+/// Unswizzle pointers to offset(buffer idx + offset) in the RowContainer.
+/// This is needed before spilling data
 void RowContainer::PointerSwizzler::unswizzlePointers() {
   BOLT_CHECK(
       container_.appendOnly_,

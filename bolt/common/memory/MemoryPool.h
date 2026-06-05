@@ -54,6 +54,8 @@ constexpr int64_t kMaxMemory = std::numeric_limits<int64_t>::max();
 
 template <typename T>
 class StlAllocator;
+template <typename T>
+class SlabAllocator;
 
 /// This class provides the memory allocation interfaces for a query execution.
 /// Each query execution entity creates a dedicated memory pool object. The
@@ -617,6 +619,8 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   friend class bolt::memory::TestArbitrator;
   friend class MemoryPoolArbitrationSection;
   friend class ArbitrationParticipant;
+  template <typename T>
+  friend class SlabAllocator;
 
   BOLT_FRIEND_TEST(MemoryPoolTest, shrinkAndGrowAPIs);
   BOLT_FRIEND_TEST(MemoryPoolTest, grow);

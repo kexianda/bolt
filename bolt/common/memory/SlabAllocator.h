@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstddef>
 #include <cstdlib>
 #include <limits>
@@ -14,8 +15,8 @@ namespace bytedance::bolt::memory {
 
 struct SlabAllocatorState {
   MemoryPool* pool{nullptr};
-  std::size_t usedBytes{0};
-  std::size_t reservedBytes{0};
+  std::atomic<std::size_t> usedBytes{0};
+  std::atomic<std::size_t> reservedBytes{0};
 };
 
 template <typename T>
@@ -54,36 +55,37 @@ class SlabAllocator {
   }
 
   [[nodiscard]] T* allocate(std::size_t n, std::size_t alignment) {
-    if (n > std::numeric_limits<std::size_t>::max() / sizeof(T)) {
-      throw std::bad_array_new_length();
-    }
-
     const std::size_t bytes = sizeAlign(n * sizeof(T), alignment);
     if (bytes >= kLargeAllocationThreshold) {
       return static_cast<T*>(pool_->allocate(bytes, alignment));
     }
 
+    const auto usedBytes =
+        state_->usedBytes.load(std::memory_order_acquire);
+    const auto reservedBytes =
+        state_->reservedBytes.load(std::memory_order_acquire);
     std::size_t newReservedBytes{0};
-    while (state_->usedBytes + bytes >
-           state_->reservedBytes + newReservedBytes) {
+    while (usedBytes + bytes > reservedBytes + newReservedBytes) {
       newReservedBytes += kReservationQuantum;
     }
 
     if (newReservedBytes > 0) {
       poolImpl()->reserve(newReservedBytes);
-      state_->reservedBytes += newReservedBytes;
+      state_->reservedBytes.fetch_add(
+          newReservedBytes, std::memory_order_release);
     }
 
     void* p = std::malloc(bytes);
     if (p == nullptr) {
       if (newReservedBytes > 0) {
         poolImpl()->release(newReservedBytes);
-        state_->reservedBytes -= newReservedBytes;
+        state_->reservedBytes.fetch_sub(
+            newReservedBytes, std::memory_order_release);
       }
       throw std::bad_alloc();
     }
 
-    state_->usedBytes += bytes;
+    state_->usedBytes.fetch_add(bytes, std::memory_order_release);
     return static_cast<T*>(p);
   }
 
@@ -102,21 +104,26 @@ class SlabAllocator {
       return;
     }
 
-    BOLT_DCHECK_GE(state_->usedBytes, bytes);
+    const auto usedBytes =
+        state_->usedBytes.load(std::memory_order_acquire);
+    const auto reservedBytes =
+        state_->reservedBytes.load(std::memory_order_acquire);
+    BOLT_DCHECK_GE(usedBytes, bytes);
 
     std::size_t recycleBytes{0};
-    while (state_->reservedBytes >= recycleBytes + kReservationQuantum &&
-           state_->reservedBytes - recycleBytes - (state_->usedBytes - bytes) >=
+    while (reservedBytes >= recycleBytes + kReservationQuantum &&
+           reservedBytes - recycleBytes - (usedBytes - bytes) >=
                kReservationQuantum) {
       recycleBytes += kReservationQuantum;
     }
 
     if (recycleBytes > 0) {
-      state_->reservedBytes -= recycleBytes;
+      state_->reservedBytes.fetch_sub(
+          recycleBytes, std::memory_order_release);
       poolImpl()->release(recycleBytes);
     }
 
-    state_->usedBytes -= bytes;
+    state_->usedBytes.fetch_sub(bytes, std::memory_order_release);
     std::free(p);
   }
 
@@ -125,11 +132,11 @@ class SlabAllocator {
   }
 
   std::size_t usedBytes() const noexcept {
-    return state_->usedBytes;
+    return state_->usedBytes.load(std::memory_order_acquire);
   }
 
   std::size_t reservedBytes() const noexcept {
-    return state_->reservedBytes;
+    return state_->reservedBytes.load(std::memory_order_acquire);
   }
 
   template <typename U>
@@ -147,6 +154,9 @@ class SlabAllocator {
   friend class SlabAllocator;
 
   static constexpr std::size_t kReservationQuantum = 1 << 20;
+
+  // for <=32K allocations, jemalloc performs well.
+  // For larger allocations, we delegate to the memory pool.
   static constexpr std::size_t kLargeAllocationThreshold = 32 << 10;
 
   static std::size_t sizeAlign(std::size_t size, std::size_t alignment) {

@@ -1,10 +1,8 @@
 #pragma once
 
-#include <atomic>
 #include <cstddef>
 #include <cstdlib>
 #include <limits>
-#include <memory>
 #include <new>
 #include <type_traits>
 
@@ -13,10 +11,9 @@
 
 namespace bytedance::bolt::memory {
 
-struct SlabAllocatorState {
+struct alignas(64) SlabAllocatorState {
   MemoryPool* pool{nullptr};
-  std::atomic<std::size_t> usedBytes{0};
-  std::atomic<std::size_t> reservedBytes{0};
+  inline static thread_local std::size_t freeBytes{0};
 };
 
 template <typename T>
@@ -37,9 +34,8 @@ class SlabAllocator {
 
   SlabAllocator() noexcept = default;
 
-  explicit SlabAllocator(MemoryPool* pool) noexcept
-      : pool_(pool), state_(std::make_shared<SlabAllocatorState>()) {
-    state_->pool = pool;
+  explicit SlabAllocator(MemoryPool* pool) noexcept : pool_(pool) {
+    state_.pool = pool;
   }
 
   SlabAllocator(const SlabAllocator&) noexcept = default;
@@ -56,36 +52,31 @@ class SlabAllocator {
 
   [[nodiscard]] T* allocate(std::size_t n, std::size_t alignment) {
     const std::size_t bytes = sizeAlign(n * sizeof(T), alignment);
-    if (bytes >= kLargeAllocationThreshold) {
+    if (bytes >= kLargeAllocationThreshold) [[unlikely]] {
       return static_cast<T*>(pool_->allocate(bytes, alignment));
     }
 
-    const auto usedBytes =
-        state_->usedBytes.load(std::memory_order_acquire);
-    const auto reservedBytes =
-        state_->reservedBytes.load(std::memory_order_acquire);
+    const auto freeBytes = state_.freeBytes;
     std::size_t newReservedBytes{0};
-    while (usedBytes + bytes > reservedBytes + newReservedBytes) {
+    while (bytes > freeBytes + newReservedBytes) [[unlikely]] {
       newReservedBytes += kReservationQuantum;
     }
 
-    if (newReservedBytes > 0) {
+    if (newReservedBytes > 0) [[unlikely]] {
       poolImpl()->reserve(newReservedBytes);
-      state_->reservedBytes.fetch_add(
-          newReservedBytes, std::memory_order_release);
+      state_.freeBytes += newReservedBytes;
     }
 
     void* p = std::malloc(bytes);
-    if (p == nullptr) {
+    if (p == nullptr) [[unlikely]] {
       if (newReservedBytes > 0) {
         poolImpl()->release(newReservedBytes);
-        state_->reservedBytes.fetch_sub(
-            newReservedBytes, std::memory_order_release);
+        state_.freeBytes -= newReservedBytes;
       }
       throw std::bad_alloc();
     }
 
-    state_->usedBytes.fetch_add(bytes, std::memory_order_release);
+    state_.freeBytes -= bytes;
     return static_cast<T*>(p);
   }
 
@@ -94,36 +85,28 @@ class SlabAllocator {
   }
 
   void deallocate(T* p, std::size_t n, std::size_t alignment) noexcept {
-    if (p == nullptr) {
+    if (p == nullptr) [[unlikely]] {
       return;
     }
 
     const std::size_t bytes = sizeAlign(n * sizeof(T), alignment);
-    if (bytes >= kLargeAllocationThreshold) {
+    if (bytes >= kLargeAllocationThreshold) [[unlikely]] {
       pool_->free(p, bytes, alignment);
       return;
     }
 
-    const auto usedBytes =
-        state_->usedBytes.load(std::memory_order_acquire);
-    const auto reservedBytes =
-        state_->reservedBytes.load(std::memory_order_acquire);
-    BOLT_DCHECK_GE(usedBytes, bytes);
+    const auto freeBytes = state_.freeBytes;
 
     std::size_t recycleBytes{0};
-    while (reservedBytes >= recycleBytes + kReservationQuantum &&
-           reservedBytes - recycleBytes - (usedBytes - bytes) >=
-               kReservationQuantum) {
+    while (freeBytes + bytes >= recycleBytes + kReservationQuantum) [[unlikely]] {
       recycleBytes += kReservationQuantum;
     }
 
-    if (recycleBytes > 0) {
-      state_->reservedBytes.fetch_sub(
-          recycleBytes, std::memory_order_release);
+    state_.freeBytes += bytes;
+    if (recycleBytes > 0) [[unlikely]] {
+      state_.freeBytes -= recycleBytes;
       poolImpl()->release(recycleBytes);
     }
-
-    state_->usedBytes.fetch_sub(bytes, std::memory_order_release);
     std::free(p);
   }
 
@@ -131,12 +114,8 @@ class SlabAllocator {
     return pool_;
   }
 
-  std::size_t usedBytes() const noexcept {
-    return state_->usedBytes.load(std::memory_order_acquire);
-  }
-
-  std::size_t reservedBytes() const noexcept {
-    return state_->reservedBytes.load(std::memory_order_acquire);
+  std::size_t freeBytes() const noexcept {
+    return state_.freeBytes;
   }
 
   template <typename U>
@@ -172,8 +151,7 @@ class SlabAllocator {
   }
 
   MemoryPool* pool_{nullptr};
-  std::shared_ptr<SlabAllocatorState> state_{
-      std::make_shared<SlabAllocatorState>()};
+  SlabAllocatorState state_;
 };
 
 } // namespace bytedance::bolt::memory

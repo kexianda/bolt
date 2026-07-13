@@ -794,8 +794,9 @@ void exportValidityBitmap(
   if (options.exportToArrowIPC && vec.typeKind() == TypeKind::UNKNOWN) {
     out.null_count = rows.count();
     if (vec.encoding() == VectorEncoding::Simple::DICTIONARY) {
-      auto nulls =
-          AlignedBuffer::allocate<char>(bits::nbytes(out.length), pool);
+      auto nulls = AlignedBuffer::
+          allocate<char, AlignedBuffer::AllocationStrategy::kConservative>(
+              bits::nbytes(out.length), pool);
       auto raw = nulls->asMutable<uint64_t>();
       bits::fillBits(raw, 0, out.length, bits::kNull);
       holder.setBuffer(0, nulls);
@@ -854,33 +855,68 @@ void exportValues(
     switch (vec.typeKind()) {
       case TypeKind::BOOLEAN:
       case TypeKind::TINYINT:
-        holder.setBuffer(1, AlignedBuffer::allocate<uint8_t>(vec.size(), pool));
+        holder.setBuffer(
+            1,
+            AlignedBuffer::allocate<
+                uint8_t,
+                AlignedBuffer::AllocationStrategy::kConservative>(
+                vec.size(), pool));
         break;
       case TypeKind::SMALLINT:
         holder.setBuffer(
-            1, AlignedBuffer::allocate<uint16_t>(vec.size(), pool));
+            1,
+            AlignedBuffer::allocate<
+                uint16_t,
+                AlignedBuffer::AllocationStrategy::kConservative>(
+                vec.size(), pool));
         break;
       case TypeKind::INTEGER:
         holder.setBuffer(
-            1, AlignedBuffer::allocate<uint32_t>(vec.size(), pool));
+            1,
+            AlignedBuffer::allocate<
+                uint32_t,
+                AlignedBuffer::AllocationStrategy::kConservative>(
+                vec.size(), pool));
         break;
       case TypeKind::BIGINT:
         holder.setBuffer(
-            1, AlignedBuffer::allocate<uint64_t>(vec.size(), pool));
+            1,
+            AlignedBuffer::allocate<
+                uint64_t,
+                AlignedBuffer::AllocationStrategy::kConservative>(
+                vec.size(), pool));
         break;
       case TypeKind::HUGEINT:
         holder.setBuffer(
-            1, AlignedBuffer::allocate<uint128_t>(vec.size(), pool));
+            1,
+            AlignedBuffer::allocate<
+                uint128_t,
+                AlignedBuffer::AllocationStrategy::kConservative>(
+                vec.size(), pool));
         break;
       case TypeKind::REAL:
-        holder.setBuffer(1, AlignedBuffer::allocate<float>(vec.size(), pool));
+        holder.setBuffer(
+            1,
+            AlignedBuffer::allocate<
+                float,
+                AlignedBuffer::AllocationStrategy::kConservative>(
+                vec.size(), pool));
         break;
       case TypeKind::DOUBLE:
-        holder.setBuffer(1, AlignedBuffer::allocate<double>(vec.size(), pool));
+        holder.setBuffer(
+            1,
+            AlignedBuffer::allocate<
+                double,
+                AlignedBuffer::AllocationStrategy::kConservative>(
+                vec.size(), pool));
         break;
       case TypeKind::TIMESTAMP:
         holder.setBuffer(
-            1, AlignedBuffer::allocate<uint128_t>(vec.size(), pool));
+            1,
+            AlignedBuffer::allocate<
+                uint128_t,
+                AlignedBuffer::AllocationStrategy::kConservative>(
+                vec.size(), pool));
         break;
       default:
         BOLT_UNREACHABLE();
@@ -899,8 +935,9 @@ void exportValues(
   auto size = getArrowElementSize(type);
   auto values = type->isBoolean()
       ? AlignedBuffer::allocate<bool>(out.length, pool)
-      : AlignedBuffer::allocate<uint8_t>(
-            checkedMultiply<size_t>(out.length, size), pool);
+      : AlignedBuffer::
+            allocate<uint8_t, AlignedBuffer::AllocationStrategy::kConservative>(
+                checkedMultiply<size_t>(out.length, size), pool);
   if (type->kind() == TypeKind::TIMESTAMP) {
     if (options.exportToArrowIPC) {
       gatherFromTimestampBufferIPC(vec, rows, options.timestampUnit, *values);
@@ -1091,7 +1128,11 @@ void exportStrings(
         vec.size(),
         bufSize);
   }
-  holder.setBuffer(2, AlignedBuffer::allocate<char>(bufSize, pool));
+  holder.setBuffer(
+      2,
+      AlignedBuffer::
+          allocate<char, AlignedBuffer::AllocationStrategy::kConservative>(
+              bufSize, pool));
   char* rawBuffer = holder.getBufferAs<char>(2);
   auto offsetLen = checkedPlus<size_t>(out.length, 1);
   holder.setBuffer(1, AlignedBuffer::allocate<T>(offsetLen, pool));
@@ -1251,8 +1292,9 @@ void exportOffsets(
     memory::MemoryPool* pool,
     BoltToArrowBridgeHolder& holder,
     Selection& childRows) {
-  auto offsets = AlignedBuffer::allocate<vector_size_t>(
-      checkedPlus<size_t>(out.length, 1), pool);
+  auto offsets = AlignedBuffer::
+      allocate<vector_size_t, AlignedBuffer::AllocationStrategy::kConservative>(
+          checkedPlus<size_t>(out.length, 1), pool);
   auto rawOffsets = offsets->asMutable<vector_size_t>();
   if (!rows.changed() && !hasNulls(vec, out.length) && isCompact(vec)) {
     auto copiedSize = vec.size() > out.length ? out.length : vec.size();
@@ -1315,8 +1357,9 @@ void exportOffsetsIPC(
     memory::MemoryPool* pool,
     BoltToArrowBridgeHolder& holder,
     Selection& childRows) {
-  auto offsets = AlignedBuffer::allocate<vector_size_t>(
-      checkedPlus<size_t>(out.length, 1), pool);
+  auto offsets = AlignedBuffer::
+      allocate<vector_size_t, AlignedBuffer::AllocationStrategy::kConservative>(
+          checkedPlus<size_t>(out.length, 1), pool);
   auto rawOffsets = offsets->asMutable<vector_size_t>();
   if (!rows.changed() && !hasNulls(vec, out.length) && isCompact(vec)) {
     const vector_size_t m = out.length;
@@ -1500,8 +1543,9 @@ void exportDictionary(
       // Arrow IPC does not allow dict in dic
       // Need to make to 1 level dict.
       auto nbuf = holder.getBufferPtr(0);
-      BufferPtr composed =
-          AlignedBuffer::allocate<vector_size_t>(out.length, pool);
+      BufferPtr composed = AlignedBuffer::allocate<
+          vector_size_t,
+          AlignedBuffer::AllocationStrategy::kConservative>(out.length, pool);
       BufferPtr clamped = clampWrapInfoSize(vec);
 
       if (rows.changed()) {
@@ -1566,7 +1610,9 @@ void exportDictionary(
             return outNulls->asMutable<uint64_t>();
           }
           // new owned buffer, memcpy if need
-          auto owned = AlignedBuffer::allocate<char>(bytes, pool);
+          auto owned = AlignedBuffer::
+              allocate<char, AlignedBuffer::AllocationStrategy::kConservative>(
+                  bytes, pool);
           auto* raw = owned->asMutable<uint64_t>();
           if (outNulls && copyExisting) {
             memcpy(raw, outNulls->as<void>(), bytes);
@@ -1603,7 +1649,9 @@ void exportDictionary(
   }
 
   if (rows.changed()) {
-    auto indices = AlignedBuffer::allocate<vector_size_t>(out.length, pool);
+    auto indices = AlignedBuffer::allocate<
+        vector_size_t,
+        AlignedBuffer::AllocationStrategy::kConservative>(out.length, pool);
     gatherFromBuffer(*INTEGER(), *vec.wrapInfo(), rows, options, *indices);
     holder.setBuffer(1, indices);
   } else {
@@ -2790,7 +2838,9 @@ VectorPtr createShortDecimalVector(
     const int128_t* input,
     size_t length,
     int64_t nullCount) {
-  auto values = AlignedBuffer::allocate<int64_t>(length, pool);
+  auto values = AlignedBuffer::
+      allocate<int64_t, AlignedBuffer::AllocationStrategy::kConservative>(
+          length, pool);
   auto rawValues = values->asMutable<int64_t>();
   for (size_t i = 0; i < length; ++i) {
     memcpy(rawValues + i, input + i, sizeof(int64_t));
@@ -2821,7 +2871,9 @@ VectorPtr createLongDecimalVector(
         wrapInBufferView(input, length * type->cppSizeInBytes()),
         nullCount);
   }
-  auto values = AlignedBuffer::allocate<int128_t>(length, pool);
+  auto values = AlignedBuffer::
+      allocate<int128_t, AlignedBuffer::AllocationStrategy::kConservative>(
+          length, pool);
   auto rawValues = values->asMutable<int128_t>();
   memcpy(rawValues, input, length * sizeof(int128_t));
 

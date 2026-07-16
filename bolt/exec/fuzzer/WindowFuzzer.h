@@ -37,7 +37,6 @@
 #include "bolt/exec/fuzzer/ReferenceQueryRunner.h"
 #include "bolt/vector/fuzzer/VectorFuzzer.h"
 
-DECLARE_bool(enable_window_reference_verification);
 namespace bytedance::bolt::exec::test {
 
 class WindowFuzzer : public AggregationFuzzerBase {

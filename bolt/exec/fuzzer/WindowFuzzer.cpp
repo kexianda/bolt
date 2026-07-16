@@ -33,10 +33,6 @@
 #include "bolt/exec/tests/utils/PlanBuilder.h"
 #include "bolt/exec/tests/utils/TempDirectoryPath.h"
 
-DEFINE_bool(
-    enable_window_reference_verification,
-    false,
-    "When true, the results of the window aggregation are compared to reference DB results");
 namespace bytedance::bolt::exec::test {
 
 namespace {

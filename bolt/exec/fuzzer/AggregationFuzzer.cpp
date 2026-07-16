@@ -50,11 +50,6 @@ DEFINE_bool(
     true,
     "When true, generates plans with aggregations over sorted inputs");
 
-DEFINE_bool(
-    enable_window_reference_verification,
-    false,
-    "When true, the results of the window aggregation are compared to reference DB results");
-
 using bytedance::bolt::fuzzer::CallableSignature;
 using bytedance::bolt::fuzzer::SignatureTemplate;
 namespace bytedance::bolt::exec::test {

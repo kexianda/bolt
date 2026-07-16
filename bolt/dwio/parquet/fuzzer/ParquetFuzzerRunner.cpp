@@ -22,13 +22,9 @@ DEFINE_int64(
     "Initial seed for random number generator used to reproduce previous "
     "results (0 means start with random seed).");
 
-DEFINE_int32(steps, 0, "Number of expressions to generate and execute.");
-
-DEFINE_int32(
-    duration_sec,
-    0,
-    "For how long it should run (in seconds). If zero, "
-    "it executes exactly --steps iterations and exits.");
+DECLARE_int32(steps);
+DECLARE_int32(duration_sec);
+DECLARE_double(null_ratio);
 
 DEFINE_double(
     lazy_vector_generation_ratio,
@@ -37,11 +33,6 @@ DEFINE_double(
     "vector will be selected to be wrapped in lazy encoding "
     "(expressed as double from 0 to 1).");
 
-DEFINE_double(
-    null_ratio,
-    0.1,
-    "Chance of adding a null constant to the plan, or null value in a vector "
-    "(expressed as double from 0 to 1).");
 namespace bytedance::bolt::dwio::fuzzer {
 namespace {
 VectorFuzzer::Options getVectorFuzzerOptions() {

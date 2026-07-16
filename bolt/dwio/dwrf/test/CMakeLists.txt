@@ -531,7 +531,7 @@ target_link_libraries(
 add_executable(bolt_dwrf_int_encoder_benchmark IntEncoderBenchmark.cpp)
 target_link_libraries(
   bolt_dwrf_int_encoder_benchmark
-  bolt_engine
+  ${TEST_LINK_LIBS}
   ${FOLLY_BENCHMARK}
 )
 

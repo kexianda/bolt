@@ -69,6 +69,8 @@ DECLARE_bool(enable_string_incremental_generation);
 DECLARE_bool(enable_duplicates);
 
 DECLARE_bool(enable_dictionary);
+
+DECLARE_bool(enable_window_reference_verification);
 namespace bytedance::bolt::exec::test {
 
 using bytedance::bolt::fuzzer::CallableSignature;

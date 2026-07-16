@@ -50,6 +50,9 @@ target_link_libraries(
   bolt_core
 )
 
+bolt_add_library(bolt_fuzzer_flags FuzzerFlags.cpp)
+target_link_libraries(bolt_fuzzer_flags PRIVATE gflags::gflags)
+
 bolt_add_library(bolt_aggregation_fuzzer AggregationFuzzer.cpp)
 
 target_link_libraries(
@@ -59,6 +62,7 @@ target_link_libraries(
   bolt_exec_test_lib
   bolt_expression_test_utility
   bolt_aggregation_fuzzer_base
+  bolt_fuzzer_flags
   bolt_fuzzer_util
 )
 
@@ -72,5 +76,6 @@ target_link_libraries(
   bolt_exec_test_lib
   bolt_expression_test_utility
   bolt_aggregation_fuzzer_base
+  bolt_fuzzer_flags
   bolt_temp_path
 )

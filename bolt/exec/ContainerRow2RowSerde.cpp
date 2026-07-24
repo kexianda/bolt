@@ -31,11 +31,12 @@ void ContainerRow2RowSerde::serialize(
       continue;
     }
     if (isStr) {
-      const StringView& sv =
-          *reinterpret_cast<StringView*>(row + rowColumn.offset());
+      const RowStringView& sv =
+          *reinterpret_cast<RowStringView*>(row + rowColumn.offset());
       if (!sv.isInline()) {
-        if (reinterpret_cast<const HashStringAllocator::Header*>(sv.data())[-1]
-                .size() >= sv.size()) {
+        if (info.stringViewsAreContiguous ||
+            reinterpret_cast<const HashStringAllocator::Header*>(sv.data())[-1]
+                    .size() >= sv.size()) {
           simd::memcpy(current, sv.data(), sv.size());
         } else {
           auto stream = HashStringAllocator::prepareRead(
@@ -82,10 +83,10 @@ int32_t ContainerRow2RowSerde::deserialize(
       continue;
     }
     if (isStr) {
-      StringView& sv =
-          *reinterpret_cast<StringView*>(current + rowColumn.offset());
+      RowStringView& sv =
+          *reinterpret_cast<RowStringView*>(current + rowColumn.offset());
       if (!sv.isInline()) {
-        sv = StringView(varBufferStart, sv.size());
+        sv = RowStringView(varBufferStart, sv.size());
         varBufferStart += sv.size();
       }
     } else {
@@ -128,10 +129,10 @@ void ContainerRow2RowSerde::copyRow(
       continue;
     }
     if (isStr) {
-      StringView& sv =
-          *reinterpret_cast<StringView*>(dest + rowColumn.offset());
+      RowStringView& sv =
+          *reinterpret_cast<RowStringView*>(dest + rowColumn.offset());
       if (!sv.isInline()) {
-        sv = StringView(varBufferStart, sv.size());
+        sv = RowStringView(varBufferStart, sv.size());
         varBufferStart += sv.size();
       }
     } else {

@@ -382,9 +382,14 @@ bool VectorHasher::makeValueIdsForRows<TypeKind::VARCHAR>(
         result[i] = 0;
       }
     } else {
-      std::string storage;
-      auto id = valueId<StringView>(HashStringAllocator::contiguousString(
-          valueAt<StringView>(groups[i], offset), storage));
+      auto value = valueAt<RowStringView>(groups[i], offset);
+      auto id = kUnmappable;
+      if (!value.isNonContiguous()) [[likely]] {
+        id = valueId(std::bit_cast<StringView>(value));
+      } else {
+        std::string storage;
+        id = valueId(HashStringAllocator::contiguousString(value, storage));
+      }
       if (id == kUnmappable) {
         return false;
       }

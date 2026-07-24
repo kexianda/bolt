@@ -33,6 +33,7 @@
 #include <functional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 
 #include <folly/FBString.h>
 #include <folly/Format.h>
@@ -52,27 +53,38 @@ namespace bytedance::bolt {
 // exposes a subset of the interface. If the string is 12 characters
 // or less, it is inlined and no reference is held. If it is longer, a
 // reference to the string is held and the 4 first characters are
-// cached in the StringView. This allows failing comparisons early and
+// cached in the StringViewBase. This allows failing comparisons early and
 // reduces the CPU cache working set when dealing with short strings.
 //
 // Adapted from TU Munich Umbra and CWI DuckDB.
 //
 // TODO: Extend the interface to parity with folly::StringPiece as needed.
-struct StringView {
+template <bool ForRow>
+struct StringViewBase {
  public:
   using value_type = char;
 
   static constexpr size_t kPrefixSize = 4 * sizeof(char);
   static constexpr size_t kInlineSize = 12;
 
-  StringView() {
-    static_assert(sizeof(StringView) == 16);
-    memset(this, 0, sizeof(StringView));
+  StringViewBase() {
+    static_assert(sizeof(StringViewBase) == 16);
+    if constexpr (sizeof(StringViewBase) == 16) {
+      auto* words = reinterpret_cast<int64_t*>(this);
+      words[0] = 0;
+      words[1] = 0;
+    } else {
+      memset(this, 0, sizeof(StringViewBase));
+    }
   }
 
-  StringView(const char* data, int32_t len) {
+  StringViewBase(const char* data, int32_t len) {
     set(data, len);
   }
+
+  template <bool OtherForRow, std::enable_if_t<ForRow && !OtherForRow, int> = 0>
+  /* implicit */ StringViewBase(const StringViewBase<OtherForRow>& other)
+      : StringViewBase(other.data(), other.size()) {}
 
   void set(const char* data, int32_t len) {
     BOLT_CHECK_GE(len, 0);
@@ -82,7 +94,11 @@ struct StringView {
       // Zero the inline part.
       // this makes sure that inline strings can be compared for equality with 2
       // int64 compares.
-      memset(prefix_, 0, kPrefixSize);
+      if constexpr (kPrefixSize == 4) {
+        *reinterpret_cast<int32_t*>(prefix_) = 0;
+      } else {
+        memset(prefix_, 0, kPrefixSize);
+      }
       if (size_ == 0) {
         return;
       }
@@ -92,36 +108,41 @@ struct StringView {
       memcpy(prefix_, data, size_);
     } else {
       // large string: store pointer
-      memcpy(prefix_, data, kPrefixSize);
+      if constexpr (kPrefixSize == 4) {
+        *reinterpret_cast<int32_t*>(prefix_) =
+            *reinterpret_cast<const int32_t*>(data);
+      } else {
+        memcpy(prefix_, data, kPrefixSize);
+      }
       value_.data = data;
     }
   }
 
-  static StringView makeInline(std::string str) {
+  static StringViewBase makeInline(std::string str) {
     BOLT_DCHECK(isInline(str.size()));
-    return StringView{str};
+    return StringViewBase{str};
   }
 
-  // Making StringView implicitly constructible/convertible from char* and
+  // Making StringViewBase implicitly constructible/convertible from char* and
   // string literals, in order to allow for a more flexible API and optional
   // interoperability. E.g:
   //
-  //   StringView sv = "literal";
-  //   std::optional<StringView> osv = "literal";
+  //   StringViewBase sv = "literal";
+  //   std::optional<StringViewBase> osv = "literal";
   //
-  /* implicit */ StringView(const char* data)
-      : StringView(data, strlen(data)) {}
+  /* implicit */ StringViewBase(const char* data)
+      : StringViewBase(data, strlen(data)) {}
 
-  explicit StringView(const folly::fbstring& value)
-      : StringView(value.data(), value.size()) {}
-  explicit StringView(folly::fbstring&& value) = delete;
+  explicit StringViewBase(const folly::fbstring& value)
+      : StringViewBase(value.data(), value.size()) {}
+  explicit StringViewBase(folly::fbstring&& value) = delete;
 
-  explicit StringView(const std::string& value)
-      : StringView(value.data(), value.size()) {}
-  explicit StringView(std::string&& value) = delete;
+  explicit StringViewBase(const std::string& value)
+      : StringViewBase(value.data(), value.size()) {}
+  explicit StringViewBase(std::string&& value) = delete;
 
-  explicit StringView(std::string_view value)
-      : StringView(value.data(), value.size()) {}
+  explicit StringViewBase(std::string_view value)
+      : StringViewBase(value.data(), value.size()) {}
 
   FOLLY_ALWAYS_INLINE bool isInline() const {
     return isInline(size_);
@@ -131,9 +152,31 @@ struct StringView {
     return size <= kInlineSize;
   }
 
+  FOLLY_ALWAYS_INLINE bool isNonContiguous() const {
+    if constexpr (ForRow) {
+      return !isInline() &&
+          (reinterpret_cast<uintptr_t>(value_.data) & kNonContiguousMask) != 0;
+    }
+    return false;
+  }
+
+  FOLLY_ALWAYS_INLINE void setNonContiguous() {
+    static_assert(ForRow, "Only row StringViews can be non-contiguous");
+    BOLT_CHECK(!isInline());
+    value_.data = reinterpret_cast<const char*>(
+        reinterpret_cast<uintptr_t>(value_.data) | kNonContiguousMask);
+  }
+
   const char* data() && = delete;
   const char* data() const& {
-    return isInline() ? prefix_ : value_.data;
+    if (isInline()) {
+      return prefix_;
+    }
+    if constexpr (ForRow) {
+      return reinterpret_cast<const char*>(
+          reinterpret_cast<uintptr_t>(value_.data) & ~kNonContiguousMask);
+    }
+    return value_.data;
   }
 
   size_t size() const {
@@ -146,12 +189,12 @@ struct StringView {
 
   friend std::ostream& operator<<(
       std::ostream& os,
-      const StringView& stringView) {
+      const StringViewBase& stringView) {
     os.write(stringView.data(), stringView.size());
     return os;
   }
 
-  bool operator==(const StringView& other) const {
+  bool operator==(const StringViewBase& other) const {
     // Compare lengths and first 4 characters.
     if (sizeAndPrefixAsInt64() != other.sizeAndPrefixAsInt64()) {
       return false;
@@ -164,19 +207,19 @@ struct StringView {
     // Sizes are equal and this is not inline, therefore both are out
     // of line and have kPrefixSize first in common.
     return memcmp(
-               value_.data + kPrefixSize,
-               other.value_.data + kPrefixSize,
+               data() + kPrefixSize,
+               other.data() + kPrefixSize,
                size_ - kPrefixSize) == 0;
   }
 
-  bool operator!=(const StringView& other) const {
+  bool operator!=(const StringViewBase& other) const {
     return !(*this == other);
   }
 
   // Returns 0, if this == other
   //       < 0, if this < other
   //       > 0, if this > other
-  int32_t compare(const StringView& other) const {
+  int32_t compare(const StringViewBase& other) const {
     uint32_t prefix = prefixAsInt();
     uint32_t otherPrefix = other.prefixAsInt();
     if (prefix != otherPrefix) {
@@ -210,19 +253,19 @@ struct StringView {
     return (result != 0) ? result : size_ - other.size_;
   }
 
-  bool operator<(const StringView& other) const {
+  bool operator<(const StringViewBase& other) const {
     return compare(other) < 0;
   }
 
-  bool operator<=(const StringView& other) const {
+  bool operator<=(const StringViewBase& other) const {
     return compare(other) <= 0;
   }
 
-  bool operator>(const StringView& other) const {
+  bool operator>(const StringViewBase& other) const {
     return compare(other) > 0;
   }
 
-  bool operator>=(const StringView& other) const {
+  bool operator>=(const StringViewBase& other) const {
     return compare(other) >= 0;
   }
 
@@ -275,12 +318,12 @@ struct StringView {
   /// 'indices' is given. searches for 'key ==
   /// strings[indices[i]]. Returns the first i for which the strings
   /// match or -1 if no match is found. Uses SIMD to accelerate the
-  /// search. Accesses StringView bodies in 32 byte vectors, thus
+  /// search. Accesses StringViewBase bodies in 32 byte vectors, thus
   /// expects up to 31 bytes of addressable padding after out of
   /// line strings. This is the case for bolt Buffers.
   static int32_t linearSearch(
-      StringView key,
-      const StringView* strings,
+      StringViewBase key,
+      const StringViewBase* strings,
       const int32_t* indices,
       int32_t numStrings);
 
@@ -293,6 +336,8 @@ struct StringView {
   }
 
  private:
+  static constexpr uintptr_t kNonContiguousMask = uintptr_t{1} << 63;
+
   inline int64_t sizeAndPrefixAsInt64() const {
     return reinterpret_cast<const int64_t*>(this)[0];
   }
@@ -315,6 +360,9 @@ struct StringView {
   } value_{.data = nullptr};
 };
 
+using StringView = StringViewBase<false>;
+using RowStringView = StringViewBase<true>;
+
 // This creates a user-defined literal for StringView. You can use it as:
 //
 //   auto myStringView = "my string"_sv;
@@ -326,18 +374,20 @@ inline StringView operator""_sv(const char* str, size_t len) {
 } // namespace bytedance::bolt
 
 namespace std {
-template <>
-struct hash<::bytedance::bolt::StringView> {
-  size_t operator()(const ::bytedance::bolt::StringView view) const {
+template <bool ForRow>
+struct hash<::bytedance::bolt::StringViewBase<ForRow>> {
+  size_t operator()(
+      const ::bytedance::bolt::StringViewBase<ForRow> view) const {
     return bytedance::bolt::bits::hashBytes(1, view.data(), view.size());
   }
 };
 } // namespace std
 
 namespace folly {
-template <>
-struct hasher<::bytedance::bolt::StringView> {
-  size_t operator()(const ::bytedance::bolt::StringView view) const {
+template <bool ForRow>
+struct hasher<::bytedance::bolt::StringViewBase<ForRow>> {
+  size_t operator()(
+      const ::bytedance::bolt::StringViewBase<ForRow> view) const {
     return bytedance::bolt::bits::hashBytes(1, view.data(), view.size());
   }
 };
@@ -345,13 +395,15 @@ struct hasher<::bytedance::bolt::StringView> {
 } // namespace folly
 
 namespace fmt {
-template <>
-struct formatter<bytedance::bolt::StringView> : private formatter<string_view> {
+template <bool ForRow>
+struct formatter<bytedance::bolt::StringViewBase<ForRow>>
+    : private formatter<string_view> {
   using formatter<string_view>::parse;
 
   template <typename Context>
-  typename Context::iterator format(bytedance::bolt::StringView s, Context& ctx)
-      const {
+  typename Context::iterator format(
+      bytedance::bolt::StringViewBase<ForRow> s,
+      Context& ctx) const {
     return formatter<string_view>::format(string_view{s.data(), s.size()}, ctx);
   }
 };

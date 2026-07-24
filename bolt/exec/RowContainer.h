@@ -32,6 +32,7 @@
 
 #include <folly/CPortability.h>
 #include "bolt/common/memory/HashStringAllocator.h"
+#include "bolt/common/memory/MemoryResource.h"
 #include "bolt/core/PlanNode.h"
 #include "bolt/exec/ContainerRowSerde.h"
 #include "bolt/functions/InlineFlatten.h"
@@ -213,6 +214,12 @@ class RowContainer {
  public:
   static constexpr uint64_t kUnlimited = std::numeric_limits<uint64_t>::max();
   using Eraser = std::function<void(folly::Range<char**> rows)>;
+  struct RowContainerParam {
+    std::shared_ptr<HashStringAllocator> hsaAllocator{nullptr};
+    // Uses a MonotonicMemoryResource owned exclusively by this RowContainer.
+    // clear() releases the resource together with the current batch of rows.
+    bool useMonotonicStringAllocation{false};
+  };
 
   /// 'keyTypes' gives the type of row and use 'allocator' for bulk
   /// allocation.
@@ -269,9 +276,34 @@ class RowContainer {
   /// a normalized key that collapses all parts into one word for faster
   /// comparison. The bulk allocation is done from 'allocator'.
   /// ContainerRowSerde is used for serializing complex type values into the
-  /// container. 'stringAllocator' allows sharing the variable length data arena
-  /// with another RowContainer. This is needed for spilling where the same
-  /// aggregates are used for reading one container and merging into another.
+  /// container. 'rowContainerParam.hsaAllocator' allows sharing the variable
+  /// length data arena with another RowContainer. This is needed for spilling
+  /// where the same aggregates are used for reading one container and merging
+  /// into another.
+  RowContainer(
+      const std::vector<TypePtr>& keyTypes,
+      bool nullableKeys,
+      const std::vector<Accumulator>& accumulators,
+      const std::vector<TypePtr>& dependentTypes,
+      bool hasNext,
+      bool isJoinBuild,
+      bool hasProbedFlag,
+      bool hasNormalizedKey,
+      bool useListRowIndex,
+      memory::MemoryPool* FOLLY_NONNULL pool)
+      : RowContainer(
+            keyTypes,
+            nullableKeys,
+            accumulators,
+            dependentTypes,
+            hasNext,
+            isJoinBuild,
+            hasProbedFlag,
+            hasNormalizedKey,
+            useListRowIndex,
+            pool,
+            RowContainerParam{}) {}
+
   RowContainer(
       const std::vector<TypePtr>& keyTypes,
       bool nullableKeys,
@@ -283,7 +315,7 @@ class RowContainer {
       bool hasNormalizedKey,
       bool useListRowIndex,
       memory::MemoryPool* FOLLY_NONNULL pool,
-      std::shared_ptr<HashStringAllocator> stringAllocator = nullptr);
+      RowContainerParam rowContainerParam);
 
   /// Allocates a new row and initializes possible aggregates to null.
   char* FOLLY_NONNULL newRow();
@@ -387,6 +419,14 @@ class RowContainer {
 
   const std::shared_ptr<HashStringAllocator>& stringAllocatorShared() {
     return stringAllocator_;
+  }
+
+  memory::SlabMemoryResource& slabMemoryResource() {
+    return *slabMemoryResource_;
+  }
+
+  memory::MonotonicMemoryResource* monotonicMemoryResource() {
+    return monotonicMemoryResource_.get();
   }
 
   /// Returns the number of used rows in 'this'. This is the number of rows a
@@ -752,12 +792,20 @@ class RowContainer {
       uint64_t* FOLLY_NONNULL result);
 
   uint64_t allocatedBytes() const {
-    return rows_.allocatedBytes() + stringAllocator_->retainedSize();
+    return rows_.allocatedBytes() + stringAllocator_->retainedSize() +
+        (monotonicMemoryResource_ ? monotonicMemoryResource_->reservedBytes()
+                                  : 0);
   }
 
   uint64_t usedBytes() const {
     return rows_.allocatedBytes() - rows_.freeBytes() +
-        stringAllocator_->retainedSize() - stringAllocator_->freeSpace();
+        stringAllocator_->retainedSize() - stringAllocator_->freeSpace() +
+        (monotonicMemoryResource_ ? monotonicMemoryResource_->usedBytes() : 0);
+  }
+
+  uint64_t variableWidthUsedBytes() const {
+    return stringAllocator_->retainedSize() - stringAllocator_->freeSpace() +
+        (monotonicMemoryResource_ ? monotonicMemoryResource_->usedBytes() : 0);
   }
 
   /// Returns the number of fixed size rows that can be allocated without
@@ -766,7 +814,11 @@ class RowContainer {
   std::pair<uint64_t, uint64_t> freeSpace() const {
     return std::make_pair<uint64_t, uint64_t>(
         rows_.freeBytes() / fixedRowSize_ + numFreeRows_,
-        stringAllocator_->freeSpace());
+        monotonicMemoryResource_ ? 0 : stringAllocator_->freeSpace());
+  }
+
+  bool useMonotonicStringAllocation() const {
+    return useMonotonicStringAllocation_;
   }
 
   /// Returns the average size of rows in bytes stored in this container.
@@ -918,7 +970,7 @@ class RowContainer {
     return rowColumns_;
   }
 
-  static int32_t compareStringAsc(StringView left, StringView right);
+  int32_t compareStringAsc(RowStringView left, RowStringView right) const;
   static std::unique_ptr<ByteInputStream> prepareRead(
       const char* row,
       int32_t offset);
@@ -1044,7 +1096,7 @@ class RowContainer {
       } else if constexpr (std::is_same_v<T, StringView>) {
         // See StringView::compare()
         // so that null StringView is the max.
-        *reinterpret_cast<T*>(row + offset) = StringView();
+        *reinterpret_cast<RowStringView*>(row + offset) = RowStringView();
         reinterpret_cast<uint32_t*>(row + offset)[1] =
             std::numeric_limits<uint32_t>::max();
       } else {
@@ -1055,8 +1107,7 @@ class RowContainer {
       return;
     }
     if constexpr (std::is_same_v<T, StringView>) {
-      RowSizeTracker tracker(row[rowSizeOffset_], *stringAllocator_);
-      stringAllocator_->copyMultipart(decoded.valueAt<T>(index), row, offset);
+      storeString(decoded.valueAt<T>(index), row, offset);
     } else {
       *reinterpret_cast<T*>(row + offset) = decoded.valueAt<T>(index);
     }
@@ -1071,8 +1122,7 @@ class RowContainer {
       int32_t offset) {
     using T = typename TypeTraits<Kind>::NativeType;
     if constexpr (std::is_same_v<T, StringView>) {
-      RowSizeTracker tracker(group[rowSizeOffset_], *stringAllocator_);
-      stringAllocator_->copyMultipart(decoded.valueAt<T>(index), group, offset);
+      storeString(decoded.valueAt<T>(index), group, offset);
     } else {
       *reinterpret_cast<T*>(group + offset) = decoded.valueAt<T>(index);
     }
@@ -1111,7 +1161,10 @@ class RowContainer {
         bits::setNull(nulls, resultIndex, false);
         if constexpr (std::is_same_v<T, StringView>) {
           extractString(
-              valueAt<StringView>(row, offset), result, resultIndex, exactSize);
+              valueAt<RowStringView>(row, offset),
+              result,
+              resultIndex,
+              exactSize);
         } else {
           values[resultIndex] = valueAt<T>(row, offset);
         }
@@ -1147,7 +1200,10 @@ class RowContainer {
         result->setNull(resultIndex, false);
         if constexpr (std::is_same_v<T, StringView>) {
           extractString(
-              valueAt<StringView>(row, offset), result, resultIndex, exactSize);
+              valueAt<RowStringView>(row, offset),
+              result,
+              resultIndex,
+              exactSize);
         } else {
           values[resultIndex] = valueAt<T>(row, offset);
         }
@@ -1185,7 +1241,7 @@ class RowContainer {
     }
     if constexpr (Kind == TypeKind::VARCHAR || Kind == TypeKind::VARBINARY) {
       return compareStringAsc(
-                 valueAt<StringView>(row, offset), decoded, index) == 0;
+                 valueAt<RowStringView>(row, offset), decoded, index) == 0;
     }
     auto left = decoded.valueAt<T>(index);
     auto right = valueAt<T>(row, offset);
@@ -1207,7 +1263,7 @@ class RowContainer {
     }
     if constexpr (Kind == TypeKind::VARCHAR || Kind == TypeKind::VARBINARY) {
       return compareStringAsc(
-                 valueAt<StringView>(row, offset), decoded, index) == 0;
+                 valueAt<RowStringView>(row, offset), decoded, index) == 0;
     }
 
     using T = typename KindToFlatVector<Kind>::HashRowType;
@@ -1239,7 +1295,7 @@ class RowContainer {
     }
     if constexpr (Kind == TypeKind::VARCHAR || Kind == TypeKind::VARBINARY) {
       auto result = compareStringAsc(
-          valueAt<StringView>(row, column.offset()), decoded, index);
+          valueAt<RowStringView>(row, column.offset()), decoded, index);
       return flags.ascending ? result : result * -1;
     }
     auto left = valueAt<T>(row, column.offset());
@@ -1277,8 +1333,8 @@ class RowContainer {
           left, right, type, leftOffset, rightOffset, flags);
     }
     if constexpr (Kind == TypeKind::VARCHAR || Kind == TypeKind::VARBINARY) {
-      auto leftValue = valueAt<StringView>(left, leftOffset);
-      auto rightValue = valueAt<StringView>(right, rightOffset);
+      auto leftValue = valueAt<RowStringView>(left, leftOffset);
+      auto rightValue = valueAt<RowStringView>(right, rightOffset);
       auto result = compareStringAsc(leftValue, rightValue);
       return flags.ascending ? result : result * -1;
     }
@@ -1355,13 +1411,22 @@ class RowContainer {
   }
 
   static void extractString(
-      StringView value,
+      RowStringView value,
       FlatVector<StringView>* FOLLY_NONNULL values,
       vector_size_t index,
       bool exactSize);
 
-  static int32_t compareStringAsc(
-      StringView left,
+  int32_t compareStringAsc(
+      RowStringView left,
+      const DecodedVector& decoded,
+      vector_size_t index);
+
+  static int32_t compareContiguousStringAsc(
+      RowStringView left,
+      RowStringView right);
+
+  static int32_t compareContiguousStringAsc(
+      RowStringView left,
       const DecodedVector& decoded,
       vector_size_t index);
 
@@ -1397,7 +1462,7 @@ class RowContainer {
       size_t column_index,
       folly::Range<char**> rows) {
     static_assert(
-        std::is_same_v<FieldType, StringView> ||
+        std::is_same_v<FieldType, RowStringView> ||
         std::is_same_v<FieldType, std::string_view>);
 
     const auto column = columnAt(column_index);
@@ -1407,8 +1472,14 @@ class RowContainer {
       }
 
       auto& view = valueAt<FieldType>(row, column.offset());
-      if constexpr (std::is_same_v<FieldType, StringView>) {
+      if constexpr (std::is_same_v<FieldType, RowStringView>) {
         if (view.isInline()) {
+          continue;
+        }
+        if (useMonotonicStringAllocation_) {
+          if (checkFree_) {
+            view = FieldType();
+          }
           continue;
         }
       } else {
@@ -1493,10 +1564,24 @@ class RowContainer {
   uint64_t numFreeRows_ = 0;
 
   memory::AllocationPool rows_;
+  std::unique_ptr<memory::SlabMemoryResource> slabMemoryResource_;
+  std::unique_ptr<memory::MonotonicMemoryResource> monotonicMemoryResource_;
   std::shared_ptr<HashStringAllocator> stringAllocator_;
+  bool useMonotonicStringAllocation_{false};
   std::vector<char*, StlAllocator<char*>> rowPointers_;
 
   int alignment_ = 1;
+
+  void storeString(StringView value, char* FOLLY_NONNULL row, int32_t offset);
+
+  void addVariableRowSize(char* FOLLY_NONNULL row, uint64_t size) {
+    if (rowSizeOffset_ == 0 || size == 0) {
+      return;
+    }
+    auto value = variableRowSize(row) + size;
+    variableRowSize(row) =
+        std::min<uint64_t>(value, std::numeric_limits<uint32_t>::max());
+  }
 };
 
 template <>
@@ -1609,7 +1694,7 @@ inline void RowContainer::extractColumnTyped<TypeKind::OPAQUE>(
     RowColumn /*column*/,
     int32_t /*resultOffset*/,
     const VectorPtr& /*result*/,
-    bool exactSize /*exactSize*/) {
+    bool /*exactSize*/) {
   BOLT_UNSUPPORTED("RowContainer doesn't support values of type OPAQUE");
 }
 
@@ -1794,7 +1879,8 @@ struct RowFormatInfo {
         rowSizeOffset(container->rowSizeOffset()),
         alignment(container->alignment()),
         rowColumns(container->columns()),
-        enableCompression(enableCompression) {
+        enableCompression(enableCompression),
+        stringViewsAreContiguous(container->useMonotonicStringAllocation()) {
     for (int i = 0; i < container->columnTypes().size(); i++) {
       auto type = container->columnTypes()[i];
       if (!type->isFixedWidth()) {
@@ -1844,6 +1930,7 @@ struct RowFormatInfo {
   std::vector<RowColumn> rowColumns;
   std::vector<Accumulator> serializableAccumulators;
   bool enableCompression;
+  bool stringViewsAreContiguous;
   bool serialized = false;
 };
 

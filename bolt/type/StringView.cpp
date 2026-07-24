@@ -57,6 +57,7 @@ int32_t linearSearchSimple(
 } // namespace
 
 // static
+template <>
 int32_t StringView::linearSearch(
     StringView key,
     const StringView* strings,

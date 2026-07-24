@@ -32,6 +32,7 @@
 #include <iostream>
 #include <memory>
 #include <sstream>
+#include <utility>
 #include <vector>
 
 #include <boost/sort/pdqsort/pdqsort.hpp>
@@ -77,6 +78,7 @@ HashTable<ignoreNullKeys>::HashTable(
     memory::MemoryPool* pool,
     const std::shared_ptr<bolt::HashStringAllocator>& stringArena,
     bool enableJit,
+    bool useMonotonicStringAllocation,
     bool hybridMode)
     : BaseHashTable(std::move(hashers)),
       minTableSizeForParallelJoinBuild_(minTableSizeForParallelJoinBuild),
@@ -103,7 +105,10 @@ HashTable<ignoreNullKeys>::HashTable(
         hasProbedFlag,
         hashMode_ != HashMode::kHash,
         false /*useListRowIndex*/,
-        pool);
+        pool,
+        RowContainer::RowContainerParam{
+            .hsaAllocator = stringArena,
+            .useMonotonicStringAllocation = useMonotonicStringAllocation});
     hybridData_ =
         std::make_unique<HybridContainer>(keys, dependentTypes, rows_.get());
   } else {
@@ -118,7 +123,9 @@ HashTable<ignoreNullKeys>::HashTable(
         hashMode_ != HashMode::kHash,
         false /*useListRowIndex*/,
         pool,
-        stringArena);
+        RowContainer::RowContainerParam{
+            .hsaAllocator = stringArena,
+            .useMonotonicStringAllocation = useMonotonicStringAllocation});
   }
   nextOffset_ = rows_->nextOffset();
 #ifdef ENABLE_BOLT_JIT // generate JIT lazily?
@@ -148,6 +155,7 @@ HashTable<ignoreNullKeys>::HashTable(
     memory::MemoryPool* pool,
     const std::shared_ptr<bolt::HashStringAllocator>& stringArena,
     bool enableJitRowEqVectors,
+    bool useMonotonicStringAllocation,
     bool hybridMode)
     : HashTable<ignoreNullKeys>(
           std::move(hashers),
@@ -161,6 +169,7 @@ HashTable<ignoreNullKeys>::HashTable(
           pool,
           stringArena,
           enableJitRowEqVectors,
+          useMonotonicStringAllocation,
           hybridMode) {}
 
 int32_t ProbeState::row() const {

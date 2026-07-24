@@ -1708,6 +1708,41 @@ TEST_F(RowContainerTest, partialWriteComplexTypedRow) {
   rowContainer->eraseRows(folly::Range<char**>(&row, 1));
 }
 
+TEST_F(RowContainerTest, ownsAndResetsMonotonicMemoryResource) {
+  RowContainer::RowContainerParam params;
+  params.useMonotonicStringAllocation = true;
+  auto makeContainer = [&]() {
+    return std::make_unique<RowContainer>(
+        std::vector<TypePtr>{VARCHAR()},
+        false,
+        std::vector<Accumulator>{},
+        std::vector<TypePtr>{},
+        false,
+        false,
+        false,
+        false,
+        false,
+        pool_.get(),
+        params);
+  };
+  auto first = makeContainer();
+  auto second = makeContainer();
+
+  ASSERT_NE(nullptr, first->monotonicMemoryResource());
+  ASSERT_NE(nullptr, second->monotonicMemoryResource());
+  EXPECT_NE(
+      first->monotonicMemoryResource(), second->monotonicMemoryResource());
+
+  auto values = makeFlatVector<std::string>({"a non-inline string"});
+  DecodedVector decoded(*values);
+  auto* row = first->newRow();
+  first->store(decoded, 0, row, 0);
+  EXPECT_GT(first->monotonicMemoryResource()->usedBytes(), 0);
+
+  first->clear();
+  EXPECT_EQ(first->monotonicMemoryResource()->usedBytes(), 0);
+}
+
 TEST_F(RowContainerTest, extractSerializedRow) {
   VectorFuzzer fuzzer(
       {

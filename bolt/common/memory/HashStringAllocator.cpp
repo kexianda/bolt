@@ -324,14 +324,10 @@ void HashStringAllocator::newContiguousRange(int32_t bytes, ByteRange* range) {
 
 // static
 StringView HashStringAllocator::contiguousString(
-    StringView view,
+    RowStringView view,
     std::string& storage) {
-  if (view.isInline()) {
-    return view;
-  }
-  auto header = headerOf(view.data());
-  if (view.size() <= header->size()) {
-    return view;
+  if (!view.isNonContiguous()) {
+    return std::bit_cast<StringView>(view);
   }
 
   auto stream = prepareRead(headerOf(view.data()));
@@ -613,8 +609,8 @@ inline bool HashStringAllocator::storeStringFast(
     }
   }
   simd::memcpy(header->begin(), bytes, numBytes);
-  *reinterpret_cast<StringView*>(destination) =
-      StringView(reinterpret_cast<char*>(header->begin()), numBytes);
+  *reinterpret_cast<RowStringView*>(destination) =
+      RowStringView(reinterpret_cast<char*>(header->begin()), numBytes);
   return true;
 }
 
@@ -634,8 +630,9 @@ void HashStringAllocator::copyMultipartNoInline(
 
   // The stringView has a pointer to the first byte and the total
   // size. Read with contiguousString().
-  *reinterpret_cast<StringView*>(group + offset) =
-      StringView(reinterpret_cast<char*>(position.position), numBytes);
+  auto& view = *reinterpret_cast<RowStringView*>(group + offset);
+  view = RowStringView(reinterpret_cast<char*>(position.position), numBytes);
+  view.setNonContiguous();
 }
 
 std::string HashStringAllocator::toString() const {
@@ -777,8 +774,8 @@ void HashStringAllocator::checkEmpty() const {
 int HashStringAllocator::FastRowStringViewCompareAsc(
     char* l,
     char* r) noexcept {
-  const StringView* left = (const StringView*)(l);
-  const StringView* right = (const StringView*)(r);
+  const RowStringView* left = (const RowStringView*)(l);
+  const RowStringView* right = (const RowStringView*)(r);
 
   Header* leftHead = reinterpret_cast<Header*>(l);
   Header* rightHead = reinterpret_cast<Header*>(r);

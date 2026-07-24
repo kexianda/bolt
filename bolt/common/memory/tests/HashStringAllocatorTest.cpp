@@ -77,8 +77,9 @@ class HashStringAllocatorTest : public testing::Test {
 
   static void checkMultipart(const Multipart& data) {
     std::string storage;
-    auto contiguous = HashStringAllocator::contiguousString(
-        StringView(data.start.position, data.reference.size()), storage);
+    auto view = RowStringView(data.start.position, data.reference.size());
+    view.setNonContiguous();
+    auto contiguous = HashStringAllocator::contiguousString(view, storage);
     EXPECT_EQ(StringView(data.reference), contiguous);
   }
 
@@ -560,7 +561,7 @@ TEST_F(HashStringAllocatorTest, strings) {
   constexpr uint64_t kMagic1 = 0x133788a07;
   constexpr uint64_t kMagic2 = 0xe7ababe11e;
   std::vector<std::string> strings;
-  std::vector<StringView> views;
+  std::vector<RowStringView> views;
   for (auto i = 0; i < 20000; ++i) {
     std::string str;
     auto freeBytes = allocator_->freeSpace();
@@ -585,8 +586,9 @@ TEST_F(HashStringAllocatorTest, strings) {
       }
     }
     strings.push_back(str);
-    views.push_back(StringView(str.data(), str.size()));
-    allocator_->copyMultipart(views[i], reinterpret_cast<char*>(&views[i]), 0);
+    views.push_back(RowStringView(str.data(), str.size()));
+    allocator_->copyMultipart(
+        StringView(str), reinterpret_cast<char*>(&views[i]), 0);
     if (i % 10 == 0) {
       allocator_->checkConsistency();
     }
@@ -671,11 +673,29 @@ TEST_F(HashStringAllocatorTest, sizeAndPosition) {
 TEST_F(HashStringAllocatorTest, storeStringFast) {
   allocator_->allocate(HashStringAllocator::kMinAlloc);
   std::string s(allocator_->freeSpace() + sizeof(void*), 'x');
-  StringView sv(s);
-  allocator_->copyMultipart(sv, reinterpret_cast<char*>(&sv), 0);
+  RowStringView sv(s.data(), s.size());
+  allocator_->copyMultipart(StringView(s), reinterpret_cast<char*>(&sv), 0);
   ASSERT_NE(sv.data(), s.data());
   ASSERT_EQ(sv, StringView(s));
   allocator_->checkConsistency();
+}
+
+TEST_F(HashStringAllocatorTest, copyMultipartMarksNonContiguousString) {
+  std::string source(HashStringAllocator::kMaxAlloc + 100, 'x');
+  RowStringView view(source.data(), source.size());
+
+  std::string storage;
+  auto alreadyContiguous = HashStringAllocator::contiguousString(view, storage);
+  EXPECT_EQ(alreadyContiguous.data(), source.data());
+  EXPECT_TRUE(storage.empty());
+
+  allocator_->copyMultipart(
+      StringView(source), reinterpret_cast<char*>(&view), 0);
+  ASSERT_TRUE(view.isNonContiguous());
+
+  auto contiguous = HashStringAllocator::contiguousString(view, storage);
+  EXPECT_FALSE(contiguous.isNonContiguous());
+  EXPECT_EQ(contiguous, StringView(source));
 }
 
 TEST_F(HashStringAllocatorTest, fastRowStringCmp) {
@@ -706,11 +726,13 @@ TEST_F(HashStringAllocatorTest, fastRowStringCmp) {
     for (auto j = 0; j < rawStrs.size(); ++j) {
       auto& leftStr = rawStrs[i];
       auto& rightStr = rawStrs[j];
-      StringView left(leftStr.c_str(), leftStr.size());
-      StringView right(rightStr.c_str(), rightStr.size());
+      RowStringView left(leftStr.c_str(), leftStr.size());
+      RowStringView right(rightStr.c_str(), rightStr.size());
 
-      allocator_->copyMultipart(left, reinterpret_cast<char*>(&left), 0);
-      allocator_->copyMultipart(right, reinterpret_cast<char*>(&right), 0);
+      allocator_->copyMultipart(
+          StringView(leftStr), reinterpret_cast<char*>(&left), 0);
+      allocator_->copyMultipart(
+          StringView(rightStr), reinterpret_cast<char*>(&right), 0);
 
       auto fastRes = HashStringAllocator::FastRowStringViewCompareAsc(
           (char*)(&left), (char*)(&right));

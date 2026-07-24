@@ -330,9 +330,9 @@ class RowEqRowTest : public OperatorTestBase {
     if (special && types.size() == 1 &&
         (types[0]->isVarchar() || types[0]->isVarbinary())) {
       for (auto i = 0; i < rows.size() - 1; i++) {
-        auto currStr = rowContainer->valueAt<StringView>(
+        auto currStr = rowContainer->valueAt<RowStringView>(
             rows[i], rowContainer->columnAt(0).offset());
-        auto nextStr = rowContainer->valueAt<StringView>(
+        auto nextStr = rowContainer->valueAt<RowStringView>(
             rows[i + 1], rowContainer->columnAt(0).offset());
         if (currStr == nextStr) {
           if (currStr.size() == 4) { // equal prefix but different size
@@ -842,6 +842,84 @@ TEST_F(RowEqRowTest, 2String) {
           std::make_shared<DecodedVector>(*col),
           std::make_shared<DecodedVector>(*col)}};
   runOnce(types, decodedVectors, true, bytedance::bolt::jit::CmpType::EQUAL);
+}
+
+TEST_F(RowEqRowTest, compareNonInlineStringsWithBothAllocators) {
+  constexpr int32_t kStringSize = 100'000;
+  const auto makeKey = [](char suffix) {
+    std::string key(kStringSize, 'x');
+    key.replace(0, StringView::kPrefixSize, StringView::kPrefixSize, 'p');
+    key[StringView::kPrefixSize] = suffix;
+    return key;
+  };
+
+  const auto keyA = makeKey('a');
+  const auto keyB = makeKey('b');
+  const auto keyC = makeKey('c');
+  const std::string commonPrefix(StringView::kPrefixSize, 'p');
+  auto key1 = makeFlatVector<std::string>({keyA, keyA, keyB, keyA});
+  auto key2 = makeFlatVector<std::string>({keyB, keyB, keyB, keyC});
+  std::vector<std::shared_ptr<DecodedVector>> decodedVectors = {
+      std::make_shared<DecodedVector>(*key1),
+      std::make_shared<DecodedVector>(*key2)};
+  std::vector<TypePtr> types = {VARCHAR(), VARCHAR()};
+
+  // Run the same generated compare function first with contiguous strings and
+  // then with HashStringAllocator strings that span allocation ranges.
+  for (const bool useMonotonicStringAllocation : {true, false}) {
+    exec::RowContainer::RowContainerParam param;
+    param.useMonotonicStringAllocation = useMonotonicStringAllocation;
+    param.hsaAllocator = std::make_shared<HashStringAllocator>(pool());
+    auto rowContainer = std::make_shared<exec::RowContainer>(
+        types,
+        false,
+        std::vector<exec::Accumulator>{},
+        std::vector<TypePtr>{},
+        true,
+        true,
+        false,
+        false,
+        false,
+        pool(),
+        param);
+    ASSERT_EQ(
+        useMonotonicStringAllocation,
+        rowContainer->useMonotonicStringAllocation());
+
+    auto rows = store(*rowContainer, decodedVectors, key1->size());
+    bool existNonContiguousString = false;
+    for (auto* row : rows) {
+      for (int32_t column = 0; column < types.size(); ++column) {
+        const auto value = rowContainer->valueAt<RowStringView>(
+            row, rowContainer->columnAt(column).offset());
+        ASSERT_FALSE(value.isInline());
+        EXPECT_EQ(value.size(), kStringSize);
+        EXPECT_EQ(
+            std::string_view(value.data(), StringView::kPrefixSize),
+            commonPrefix);
+        if (value.isNonContiguous()) {
+          existNonContiguousString = true;
+        }
+      }
+    }
+    EXPECT_EQ(existNonContiguousString, !useMonotonicStringAllocation);
+
+    std::vector<CompareFlags> flags(types.size(), CompareFlags());
+    auto [jitModule, functionName] = rowContainer->codegenCompare(
+        types, flags, bytedance::bolt::jit::CmpType::EQUAL, false);
+    auto compare = reinterpret_cast<exec::RowRowCompare>(
+        jitModule->getFuncPtr(functionName));
+    ASSERT_NE(compare, nullptr);
+
+    EXPECT_TRUE(compare(rows[0], rows[1]));
+    EXPECT_FALSE(compare(rows[0], rows[2]));
+    EXPECT_FALSE(compare(rows[0], rows[3]));
+    RowEqualRow<false>(
+        rowContainer.get(),
+        rows,
+        compare,
+        bytedance::bolt::jit::CmpType::EQUAL);
+  }
 }
 
 TEST_F(RowEqRowTest, 2StringLess) {

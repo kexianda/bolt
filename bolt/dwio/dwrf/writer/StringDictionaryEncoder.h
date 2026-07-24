@@ -32,6 +32,7 @@
 
 #include <folly/container/F14Set.h>
 #include <folly/hash/Checksum.h>
+#include "bolt/common/memory/MemoryResource.h"
 
 #include "bolt/common/base/GTestMacros.h"
 #include "bolt/dwio/common/DataBuffer.h"
@@ -113,11 +114,12 @@ class StringDictionaryEncoder {
       memory::MemoryPool& dictionaryDataPool,
       memory::MemoryPool& generalPool)
       : keyBytes_{dictionaryDataPool},
+        keyIndexResource_{generalPool},
         keyIndex_{
             17,
             folly::transparent<DictStringIdHash>(*this),
             folly::transparent<DictStringIdEquality>(*this),
-            memory::StlAllocator<detail::DictStringId>{generalPool}},
+            memory::SlabAllocator<detail::DictStringId>{&keyIndexResource_}},
         keyOffsets_{dictionaryDataPool},
         counts_{generalPool},
         firstSeenStrideIndex_{generalPool},
@@ -202,6 +204,7 @@ class StringDictionaryEncoder {
 
   // All keys are written in this single array.
   dwio::common::DataBuffer<char> keyBytes_;
+  memory::SlabMemoryResource keyIndexResource_;
 
   // Set to lookup if the String is already assigned an id.
   // An Id can only be created after appending the string, so this set
@@ -211,7 +214,7 @@ class StringDictionaryEncoder {
       detail::DictStringId,
       folly::transparent<DictStringIdHash>,
       folly::transparent<DictStringIdEquality>,
-      memory::StlAllocator<detail::DictStringId>>
+      memory::SlabAllocator<detail::DictStringId>>
       keyIndex_;
   // key index -> starting offset of key.
   dwio::common::DataBuffer<uint32_t> keyOffsets_;

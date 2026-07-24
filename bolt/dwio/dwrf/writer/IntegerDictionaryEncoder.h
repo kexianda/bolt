@@ -33,6 +33,7 @@
 #include <boost/sort/pdqsort/pdqsort.hpp>
 #include <folly/container/F14Set.h>
 #include "bolt/common/base/GTestMacros.h"
+#include "bolt/common/memory/MemoryResource.h"
 #include "bolt/dwio/common/DataBuffer.h"
 #include "bolt/dwio/dwrf/common/IntEncoder.h"
 #include "bolt/dwio/dwrf/writer/DictionaryEncodingUtils.h"
@@ -125,11 +126,12 @@ class IntegerDictionaryEncoder : public AbstractIntegerDictionaryEncoder {
       bool sort = false,
       std::unique_ptr<IntEncoder<true>> dictDataWriter = nullptr)
       : generalPool_{generalPool},
+        keyIndexResource_{generalPool_},
         keyIndex_{
             17,
             folly::transparent<DictIntegerHash<Integer>>(*this),
             folly::transparent<DictIntegerEquality<Integer>>(*this),
-            memory::StlAllocator<DictIntegerId<Integer>>{generalPool_}},
+            memory::SlabAllocator<DictIntegerId<Integer>>{&keyIndexResource_}},
         keys_{dictionaryDataPool},
         counts_{dictionaryDataPool},
         totalCount_{0},
@@ -314,11 +316,12 @@ class IntegerDictionaryEncoder : public AbstractIntegerDictionaryEncoder {
   }
 
   memory::MemoryPool& generalPool_;
+  memory::SlabMemoryResource keyIndexResource_;
   folly::F14FastSet<
       DictIntegerId<Integer>,
       folly::transparent<DictIntegerHash<Integer>>,
       folly::transparent<DictIntegerEquality<Integer>>,
-      memory::StlAllocator<DictIntegerId<Integer>>>
+      memory::SlabAllocator<DictIntegerId<Integer>>>
       keyIndex_;
   // key index -> key.
   dwio::common::DataBuffer<Integer> keys_;

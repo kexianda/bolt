@@ -624,7 +624,7 @@ uint64_t SpillWriter::writeAndFlush(
 }
 
 uint64_t SpillWriter::write(
-    const std::vector<char*, memory::StlAllocator<char*>>& rows,
+    const std::vector<char*, memory::SlabAllocator<char*>>& rows,
     const RowFormatInfo& info) {
   checkNotFinished();
   static constexpr size_t kBufferSize =

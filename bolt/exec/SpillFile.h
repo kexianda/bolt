@@ -173,7 +173,7 @@ class SpillWriter {
       const folly::Range<IndexRange*>& indices);
 
   uint64_t write(
-      const std::vector<char*, memory::StlAllocator<char*>>& rows,
+      const std::vector<char*, memory::SlabAllocator<char*>>& rows,
       const RowFormatInfo& info);
 
   /// Writes one caller-defined spill block. The caller owns the full header

@@ -19,7 +19,7 @@
 #include <cstdint>
 
 #include <folly/Portability.h>
-#include <xsimd/xsimd.hpp>
+#include "bolt/common/base/Xsimd.h"
 
 #include "bolt/common/base/Exceptions.h"
 #include "bolt/functions/sparksql/BitmapUtil.h"

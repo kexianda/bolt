@@ -29,7 +29,7 @@ namespace {
 // NameNode RPC port used by the container-based minicluster.
 constexpr int kNameNodeRpcPort = 7878;
 
-std::string quoted(const std::string& s) {
+std::string shellQuote(const std::string& s) {
   // Safe quoting for shell invocations in tests.
   std::string out = "'";
   for (char c : s) {
@@ -87,8 +87,8 @@ void HdfsContainerMiniCluster::Start(std::chrono::seconds timeout) {
   const int timeoutSeconds = static_cast<int>(timeout.count());
   const std::string cmd = fmt::format(
       "bash {} start --name {} --timeout-seconds {}",
-      quoted(scriptPath),
-      quoted(containerName_),
+      shellQuote(scriptPath),
+      shellQuote(containerName_),
       timeoutSeconds);
 
   LOG(INFO) << "Starting HDFS minicluster via script: " << cmd;
@@ -118,7 +118,9 @@ void HdfsContainerMiniCluster::Stop() noexcept {
 
   const std::string scriptPath = scriptPathForTests();
   const std::string cmd = fmt::format(
-      "bash {} stop --name {}", quoted(scriptPath), quoted(containerName_));
+      "bash {} stop --name {}",
+      shellQuote(scriptPath),
+      shellQuote(containerName_));
   runCmd(cmd);
   if (!started_) {
     return;

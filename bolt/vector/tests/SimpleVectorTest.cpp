@@ -840,7 +840,9 @@ class SimpleVectorSimdTypedTest : public SimpleVectorTest {
  protected:
   template <typename VectorEncoding::Simple encode>
   void runTest() {
-    if constexpr (std::is_integral_v<T> && CanSimd<encode, T>()) {
+    if constexpr (
+        std::is_integral_v<T> && !std::is_same_v<T, bool> &&
+        CanSimd<encode, T>()) {
       LOG(INFO) << "VectorType: " << encode << ", SimdType: " << type_name<T>();
       // Try more numbers to cover several edge cases of all vector's
       // loadSIMDValueBufferAt() function

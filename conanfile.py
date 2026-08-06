@@ -17,6 +17,7 @@ import os
 import platform
 import re
 from conan import ConanFile
+from conan.errors import ConanInvalidConfiguration
 from conan.tools import files, scm
 from conan.tools.cmake import CMake, CMakeDeps, CMakeToolchain, cmake_layout
 from conan.tools.env import VirtualBuildEnv, VirtualRunEnv
@@ -209,7 +210,7 @@ class BoltConan(ConanFile):
             )
         self.requires("simdjson/3.12.3", transitive_headers=True)
         self.requires(
-            "sonic-cpp/1.0.2-bolt", transitive_headers=True, transitive_libs=True
+            "sonic-cpp/1.0.2.1", transitive_headers=True, transitive_libs=True
         )
         self.requires(
             f"protobuf/{protobuf_version}",
@@ -222,7 +223,7 @@ class BoltConan(ConanFile):
             "icu/74.2", headers=True, transitive_headers=True, transitive_libs=True
         )
         self.requires(
-            "xsimd/9.0.1", transitive_headers=True, transitive_libs=True, force=True
+            "xsimd/14.2.0", transitive_headers=True, transitive_libs=True, force=True
         )
         self.requires(
             "cityhash/cci.20130801", transitive_headers=True, transitive_libs=True
@@ -329,6 +330,8 @@ class BoltConan(ConanFile):
         elif str(self.settings.arch) in ["armv8", "arm", "armv9"]:
             arrow_simd_level = "neon"
             llvm_targets = "AArch64"
+        elif str(self.settings.arch) in ["riscv32", "riscv64"]:
+            llvm_targets = "RISCV"
         self.options[arrow].parquet = True
         self.options[arrow].filesystem_layer = True
         self.options[arrow].simd_level = arrow_simd_level
@@ -437,6 +440,11 @@ class BoltConan(ConanFile):
 
         if str(self.settings.arch) in ["armv8", "arm", "armv9"]:
             flags = self._get_arm_cpu_flags()
+            tc.cache_variables["CMAKE_CXX_FLAGS"] = flags
+            tc.cache_variables["CMAKE_C_FLAGS"] = flags
+
+        if str(self.settings.arch) in ["riscv32", "riscv64"]:
+            flags = self._get_riscv_cpu_flags()
             tc.cache_variables["CMAKE_CXX_FLAGS"] = flags
             tc.cache_variables["CMAKE_C_FLAGS"] = flags
         if (
@@ -781,3 +789,54 @@ class BoltConan(ConanFile):
         else:
             self.output.info("Using fallback -march=armv8.3-a")
             return f"{base_flags} -march=armv8.3-a"
+
+    def _get_riscv_cpu_flags(self) -> str:
+        """Select xsimd's RVV backend or its emulated scalar backend.
+
+        xsimd requires a fixed RVV width at compile time.  BOLT_RISCV_VECTOR_BITS
+        may be set to 128, 256, or 512 to override auto detection.  Set it to 0
+        to force the portable scalar implementation.
+        """
+        base_flags = self.BOLT_GLOBAL_FLAGS
+        vector_bits = os.getenv("BOLT_RISCV_VECTOR_BITS")
+
+        if vector_bits is None and self.settings.os == "Linux":
+            try:
+                with open("/proc/cpuinfo", "r") as cpuinfo:
+                    for line in cpuinfo:
+                        key, separator, value = line.partition(":")
+                        if separator and key.strip().lower() in (
+                            "isa",
+                            "isa extensions",
+                        ):
+                            extensions = value.strip().lower().replace("_", " ").split()
+                            base_isa = extensions[0] if extensions else ""
+                            base_extensions = base_isa.removeprefix(
+                                "rv32"
+                            ).removeprefix("rv64")
+                            if "v" in base_extensions or any(
+                                extension == "v" or extension.startswith("zve")
+                                for extension in extensions[1:]
+                            ):
+                                # RVV 1.0 requires VLEN >= 128.  A fixed 128-bit
+                                # ABI is portable across all compliant V machines.
+                                vector_bits = "128"
+                            break
+            except (FileNotFoundError, PermissionError, OSError) as error:
+                self.output.warning(f"Could not inspect RISC-V ISA: {error}")
+
+        if vector_bits in ("128", "256", "512"):
+            arch = "rv32gcv" if str(self.settings.arch) == "riscv32" else "rv64gcv"
+            self.output.info(f"Enabling xsimd RVV backend ({vector_bits} bits)")
+            return (
+                f"{base_flags} -march={arch}_zvl{vector_bits}b "
+                "-mrvv-vector-bits=zvl"
+            )
+
+        if vector_bits not in (None, "0"):
+            raise ConanInvalidConfiguration(
+                "BOLT_RISCV_VECTOR_BITS must be one of 0, 128, 256, or 512"
+            )
+
+        self.output.info("RVV unavailable; using xsimd emulated scalar backend")
+        return f"{base_flags} -DBOLT_XSIMD_SCALAR_FALLBACK=1"

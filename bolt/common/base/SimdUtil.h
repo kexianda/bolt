@@ -33,9 +33,10 @@
 #include <cstdint>
 #include "bolt/common/base/BitUtil.h"
 #include "bolt/common/base/Exceptions.h"
+#include "bolt/common/base/Xsimd.h"
 
 #include <folly/Likely.h>
-#include <xsimd/xsimd.hpp>
+
 namespace bytedance::bolt::simd {
 
 // Return width of the widest store.
@@ -443,17 +444,12 @@ uint32_t crc32U64(uint32_t checksum, uint64_t value, const A& arch = {}) {
 template <typename T, typename A = xsimd::default_arch>
 xsimd::batch<T, A> iota(const A& = {});
 
-// Returns a batch with all elements set to value.  For batch<bool> we
-// use one bit to represent one element.
+// Returns a batch with all elements set to value. For bool, returns a byte
+// batch whose bits are all set or all clear.
 template <typename T, typename A = xsimd::default_arch>
-xsimd::batch<T, A> setAll(T value, const A& = {}) {
+auto setAll(T value, const A& = {}) {
   if constexpr (std::is_same_v<T, bool>) {
-#if defined(__aarch64__)
-    return xsimd::batch<T, A>(
-        xsimd::broadcast<unsigned char, A>(value ? -1 : 0));
-#else
-    return xsimd::batch<T, A>(xsimd::broadcast<int64_t, A>(value ? -1 : 0));
-#endif
+    return xsimd::broadcast<uint8_t, A>(value ? uint8_t(-1) : uint8_t(0));
   } else {
     return xsimd::broadcast<T, A>(value);
   }

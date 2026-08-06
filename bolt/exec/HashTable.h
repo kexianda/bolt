@@ -149,6 +149,8 @@ class BaseHashTable {
   using TagVector = xsimd::batch<uint8_t, xsimd::sse2>;
 #elif XSIMD_WITH_NEON
   using TagVector = xsimd::batch<uint8_t, xsimd::neon>;
+#elif defined(BOLT_XSIMD_SCALAR_FALLBACK)
+  using TagVector = xsimd::batch<uint8_t, xsimd::emulated<128>>;
 #endif
 
   using MaskType = uint16_t;
@@ -430,6 +432,8 @@ class BaseHashTable {
     return TagVector(_mm_loadu_si128(reinterpret_cast<__m128i const*>(src)));
 #elif XSIMD_WITH_NEON
     return TagVector(vld1q_u8(src));
+#elif defined(BOLT_XSIMD_SCALAR_FALLBACK)
+    return TagVector::load_unaligned(src);
 #endif
   }
 

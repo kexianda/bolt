@@ -187,8 +187,9 @@ class JsonToMapFunction : public exec::VectorFunction {
         // round-tripping through a double (which loses precision and reformats,
         // e.g. 1e10 -> 10000000000.0) or failing on out-of-range exponents
         // (e.g. 1e400). Matches the Hive reference UDF (com.jsoniter).
-        constexpr unsigned kParseFlags =
-            kParseIntegerAsRaw | kParseOverflowNumAsNumStr;
+        constexpr auto kParseFlags =
+            ParseFlags::kParseIntegerAsRaw |
+            ParseFlags::kParseOverflowNumAsNumStr;
         doc.Parse<kParseFlags>(current);
         std::string escaped;
         if (doc.HasParseError()) {

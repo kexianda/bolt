@@ -311,6 +311,7 @@ class ByteSinkAppender {
 
 // Import GroupVarint encoding / decoding code from folly
 
+#if FOLLY_HAVE_GROUP_VARINT
 typedef folly::GroupVarint32 GroupVarint32;
 typedef folly::GroupVarint64 GroupVarint64;
 
@@ -321,6 +322,7 @@ typedef folly::GroupVarintEncoder<uint64_t, internal::ByteSinkAppender>
 
 typedef folly::GroupVarintDecoder<uint32_t> GroupVarint32Decoder;
 typedef folly::GroupVarintDecoder<uint64_t> GroupVarint64Decoder;
+#endif
 
 } // namespace bytedance
 

@@ -25,7 +25,7 @@
 
 #include <folly/CPortability.h>
 #include <folly/Likely.h>
-#include <xsimd/xsimd.hpp>
+#include "bolt/common/base/Xsimd.h"
 
 #if defined(__x86_64__) || defined(__i386__) || defined(_M_X64)
 #include <immintrin.h>
@@ -474,7 +474,8 @@ FOLLY_ALWAYS_INLINE xsimd::batch<uint32_t> nullableInt32SizesBatch(
   using U = xsimd::batch<uint32_t>;
   const S zero(0);
   const S adj = v - S(v <= zero); // v > 0 ? v : v - 1
-  const U zz = xsimd::bitwise_cast<U>((adj << 1) ^ (adj >> 31)); // zigzag
+  const U zz =
+      xsimd::bitwise_cast<uint32_t>((adj << 1) ^ (adj >> 31)); // zigzag
   U s(1);
   s += U(zz > U(static_cast<uint32_t>((1 << 7) - 1)));
   s += U(zz > U(static_cast<uint32_t>((1 << 14) - 1)));

@@ -1231,10 +1231,18 @@ void HashTable<ignoreNullKeys>::insertForGroupBy(
       bool inserted{false};
       for (int64_t numProbedBuckets = 0; numProbedBuckets < numBuckets();
            ++numProbedBuckets) {
+#if defined(BOLT_XSIMD_SCALAR_FALLBACK)
+        const auto occupied =
+            (tagsInTable & BaseHashTable::TagVector::broadcast(0x80)) !=
+            BaseHashTable::TagVector::broadcast(0);
+        MaskType free =
+            ~simd::toBitMask(occupied) & ProbeState::kFullMask;
+#else
         MaskType free =
             ~simd::toBitMask(
                 BaseHashTable::TagVector::batch_bool_type(tagsInTable)) &
             ProbeState::kFullMask;
+#endif
         if (free) {
           auto freeOffset = bits::getAndClearLastSetBit(free);
           storeRowPointer(offset + freeOffset, hash, groups[i]);

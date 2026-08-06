@@ -285,7 +285,11 @@ inline bool SelectiveStringDirectColumnReader::try8Consecutive(
       return false;
     }
     result[resultIndex] = length;
+#if defined(BOLT_XSIMD_SCALAR_FALLBACK)
+    xsimd::batch<int8_t, xsimd::emulated<128>> first16;
+#else
     xsimd::make_sized_batch_t<int8_t, 16> first16;
+#endif
     if (length > 0) {
       first16 = decltype(first16)::load_unaligned(data);
       first16.store_unaligned(

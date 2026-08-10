@@ -661,7 +661,10 @@ class BoltConan(ConanFile):
                 "utf8proc::utf8proc",
                 "date::date",
                 "openssl::openssl",
-                "libunwind::libunwind",
+                # Use libunwind only for stack inspection. The aggregate target
+                # also brings in libunwind-generic, which can override GCC's
+                # _Unwind_* exception runtime on RISC-V.
+                "libunwind::unwind",
                 "snappy::snappy",
                 "glog::glog",
                 "thrift::thrift",

@@ -176,6 +176,7 @@ const std::unordered_map<std::string, std::string>& getTimeZoneLinks() {
         {"America/Godthab", "America/Nuuk"},
         {"Asia/Ashkhabad", "Asia/Ashgabat"},
         {"Asia/Calcutta", "Asia/Kolkata"},
+        {"Asia/Choibalsan", "Asia/Ulaanbaatar"},
         {"Asia/Chungking", "Asia/Shanghai"},
         {"Asia/Dacca", "Asia/Dhaka"},
         {"Asia/Istanbul", "Europe/Istanbul"},

@@ -412,10 +412,12 @@ bool warmUpLibunwind() {
 #endif
 }
 
+#if !defined(__riscv)
 bool warmUpExecinfo() {
   void* frames[4];
   return backtrace(frames, 4) > 0;
 }
+#endif
 
 // Fatal-signal handling deliberately stops at raw program counters. Do not add
 // dladdr, function-name lookup, source lookup, or demangling here: those paths
@@ -504,18 +506,37 @@ void printLibBacktrace(OfflineSymbolizationFallback& fallback) {
       &context);
 }
 
-void printExecinfoBacktrace(OfflineSymbolizationFallback& fallback) {
+void printLibunwindStacktrace(
+    void* ucontext,
+    OfflineSymbolizationFallback& fallback);
+
+void printExecinfoBacktrace(
+    void* ucontext,
+    OfflineSymbolizationFallback& fallback) {
+#if defined(__riscv)
+  // glibc backtrace() can fault while unwinding a signal frame on RISC-V.
+  // Calling it here would replace the original fatal signal with SIGSEGV and
+  // truncate the crash report. Use the already warmed-up signal-frame-aware
+  // libunwind path while keeping the requested backend name in the report.
+  writeToStderr(
+      "  execinfo backtrace is unsafe in a RISC-V signal handler; "
+      "using libunwind\n");
+  printLibunwindStacktrace(ucontext, fallback);
+#else
   void* frames[kMaxStackFrames];
   const int32_t frameCount =
       backtrace(frames, static_cast<int32_t>(kMaxStackFrames));
   if (frameCount <= 0) {
-    writeToStderr("  backtrace() returned no frames\n");
+    writeToStderr(
+        "  backtrace() returned no frames; falling back to libunwind\n");
+    printLibunwindStacktrace(ucontext, fallback);
     return;
   }
   for (int32_t frame = 0; frame < frameCount; ++frame) {
     const auto address = reinterpret_cast<uintptr_t>(frames[frame]);
     writeStackFrame(static_cast<size_t>(frame), address, fallback);
   }
+#endif
 }
 
 uintptr_t getInstructionPointer(void* ucontext) {
@@ -529,6 +550,9 @@ uintptr_t getInstructionPointer(void* ucontext) {
 #elif defined(__aarch64__)
   const auto* context = static_cast<const ucontext_t*>(ucontext);
   return static_cast<uintptr_t>(context->uc_mcontext.pc);
+#elif defined(__riscv)
+  const auto* context = static_cast<const ucontext_t*>(ucontext);
+  return static_cast<uintptr_t>(context->uc_mcontext.__gregs[REG_PC]);
 #else
   return 0;
 #endif
@@ -600,7 +624,7 @@ void printSelectedStacktrace(
       printLibunwindStacktrace(ucontext, fallback);
       return;
     case StackTraceEngine::kBacktrace:
-      printExecinfoBacktrace(fallback);
+      printExecinfoBacktrace(ucontext, fallback);
       return;
     case StackTraceEngine::kLibBacktrace:
       printLibBacktrace(fallback);
@@ -901,11 +925,14 @@ void installCrashReportHandler(
           "[CrashReporter] Warning: Failed to warm up raw libbacktrace "
           "collection; crash-time unwinding remains best-effort.\n");
     }
-  } else if (engine == StackTraceEngine::kBacktrace && !warmUpExecinfo()) {
+  }
+#if !defined(__riscv)
+  if (engine == StackTraceEngine::kBacktrace && !warmUpExecinfo()) {
     writeToStderr(
         "[CrashReporter] Warning: Failed to warm up execinfo backtrace; "
         "crash-time unwinding remains best-effort.\n");
   }
+#endif
   kSelectedEngine = static_cast<sig_atomic_t>(engine);
   kOfflineDemangle = demangle ? 1 : 0;
   cacheLoadedObjects();

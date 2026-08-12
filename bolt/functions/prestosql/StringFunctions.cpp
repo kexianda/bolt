@@ -79,6 +79,11 @@ class UpperLowerTemplateFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       DecodedVector* decodedInput,
       FlatVector<StringView>* results) const {
+    // ASCII case conversion preserves string lengths, hence the cached stats
+    // remain valid. Temporarily clear them while mutating the vector to satisfy
+    // FlatVector's invariant that generic mutations cannot retain stale stats.
+    auto stringStats = results->stringStats();
+    results->clearStringViewStats();
     rows.applyToSelected([&](int row) {
       auto proxy = exec::StringWriter<true /*reuseInput*/>(
           results,
@@ -92,6 +97,9 @@ class UpperLowerTemplateFunction : public exec::VectorFunction {
       }
       proxy.finalize();
     });
+    if (stringStats.has_value()) {
+      results->setStringViewStats(stringStats.value());
+    }
   }
 
  public:

@@ -440,6 +440,10 @@ class FlatVector final : public SimpleVector<T> {
 
   void setStringViewStats(StringViewStats /*stats*/) {}
 
+  void clearStringViewStats() {
+    stringStats_.reset();
+  }
+
   uint64_t estimateFlatSize() const override {
     return BaseVector::estimateFlatSize();
   }

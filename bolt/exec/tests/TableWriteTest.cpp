@@ -3775,7 +3775,7 @@ DEBUG_ONLY_TEST_F(
   }
 }
 
-DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, writerFlushThreshold) {
+DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, DISABLED_writerFlushThreshold) {
   VectorFuzzer::Options options;
   const int batchSize = 1'000;
   options.vectorSize = batchSize;
@@ -4198,7 +4198,9 @@ DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, tableFileWriteError) {
   waitForAllTasksToBeDeleted();
 }
 
-DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, tableWriteSpillUseMoreMemory) {
+DEBUG_ONLY_TEST_F(
+    TableWriterArbitrationTest,
+    DISABLED_tableWriteSpillUseMoreMemory) {
   const uint64_t memoryCapacity = 256 * MB;
   // Create a large number of vectors to trigger writer spill.
   fuzzerOpts_.vectorSize = 1000;

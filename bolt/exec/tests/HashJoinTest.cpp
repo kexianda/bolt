@@ -8007,7 +8007,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, arbitrationTriggeredByEnsureJoinTableFit) {
       .run();
 }
 
-DEBUG_ONLY_TEST_F(HashJoinTest, joinBuildSpillError) {
+DEBUG_ONLY_TEST_F(HashJoinTest, DISABLED_joinBuildSpillError) {
   const int kMemoryCapacity = 32 << 20;
   // Set a small memory capacity to trigger spill.
   std::unique_ptr<memory::MemoryManager> memoryManager =

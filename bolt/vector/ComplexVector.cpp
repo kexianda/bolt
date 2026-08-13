@@ -526,6 +526,11 @@ void ArrayVectorBase::copyRangesImpl(
     return;
   }
 
+  // Initialize wrappers around lazy vectors before inspecting their nulls or
+  // following their wrapped vectors. In particular, DictionaryVector keeps
+  // this state uninitialized until its lazy base has been loaded.
+  source = source->loadedVector();
+
   const BaseVector* sourceValues;
   const BaseVector* sourceKeys = nullptr;
 

@@ -3638,20 +3638,31 @@ TEST_F(CastExprTest, complexTypeToStringWrappedNestedInput) {
 
   // ARRAY<MAP<...>> where the MAP child is dictionary-encoded.
   {
+    using MapEntry = std::pair<int32_t, std::optional<double>>;
+    using NullableMap = std::optional<std::vector<MapEntry>>;
+    const std::vector<NullableMap> mapData = {
+        std::vector<MapEntry>{{1, 1.25}, {2, std::nullopt}},
+        std::nullopt,
+        std::vector<MapEntry>{{3, 4.5}},
+        std::vector<MapEntry>{},
+        std::vector<MapEntry>{{5, 13.25}, {6, 1e7}},
+    };
     auto maps = makeNullableMapVector<int32_t, double>(
-        {{{{1, 1.25}, {2, std::nullopt}}},
-         std::nullopt,
-         {{{3, 4.5}}},
-         {{}},
-         {{{5, 13.25}, {6, 1e7}}}},
-        MAP(INTEGER(), DOUBLE()));
+        mapData, MAP(INTEGER(), DOUBLE()));
     castWrappedAndFlat(maps, {0, 2, 3, 5}, {});
   }
 
   // ARRAY<ARRAY<...>> where the inner ARRAY child is dictionary-encoded.
   {
-    auto inner = makeNullableArrayVector<int32_t>(
-        {{{0, 1}}, {{}}, {{2, std::nullopt, 3}}, std::nullopt, {{4}}});
+    using NullableArray = std::optional<std::vector<std::optional<int32_t>>>;
+    const std::vector<NullableArray> arrayData = {
+        std::vector<std::optional<int32_t>>{0, 1},
+        std::vector<std::optional<int32_t>>{},
+        std::vector<std::optional<int32_t>>{2, std::nullopt, 3},
+        std::nullopt,
+        std::vector<std::optional<int32_t>>{4},
+    };
+    auto inner = makeNullableArrayVector<int32_t>(arrayData);
     castWrappedAndFlat(inner, {0, 2, 5, 5}, {2});
   }
 }

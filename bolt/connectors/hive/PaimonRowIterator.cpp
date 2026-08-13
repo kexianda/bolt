@@ -53,8 +53,10 @@ PaimonRowIterator::PaimonRowIterator(
 }
 
 bool PaimonRowIterator::pkEqual(const PaimonRowIteratorPtr other) {
-  if (!primaryKeys)
+  if (!primaryKeys || rowIndex >= length || !other || !other->primaryKeys ||
+      other->rowIndex >= other->length) {
     return false;
+  }
 
   return primaryKeys->equalValueAt(
       other->primaryKeys.get(), rowIndex, other->rowIndex);

@@ -175,6 +175,16 @@ struct Timestamp {
 
   constexpr Timestamp() : seconds_(0), nanos_(0) {}
 
+  // Creates a timestamp without applying the millisecond-conversion range
+  // checks. Some Spark-compatible functions intentionally support the full
+  // int64 seconds range and format it using wrapping calendar arithmetic.
+  static Timestamp fromSecondsNoError(int64_t seconds, uint64_t nanos) {
+    Timestamp timestamp;
+    timestamp.seconds_ = seconds;
+    timestamp.nanos_ = nanos;
+    return timestamp;
+  }
+
   Timestamp(int64_t seconds, uint64_t nanos)
       : seconds_(seconds), nanos_(nanos) {
     BOLT_USER_DCHECK_GE(seconds, kMinSeconds, "Timestamp seconds out of range");

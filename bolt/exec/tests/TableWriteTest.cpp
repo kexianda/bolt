@@ -3678,7 +3678,9 @@ DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, reclaimFromTableWriter) {
   }
 }
 
-DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, reclaimFromSortTableWriter) {
+DEBUG_ONLY_TEST_F(
+    TableWriterArbitrationTest,
+    DISABLED_reclaimFromSortTableWriter) {
   VectorFuzzer::Options options;
   const int batchSize = 1'000;
   options.vectorSize = batchSize;

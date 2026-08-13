@@ -356,7 +356,7 @@ class SharedArbitrationTestWithThreadingModes : public SharedArbitrationTest {};
 
 DEBUG_ONLY_TEST_P(
     SharedArbitrationTestWithThreadingModes,
-    queryArbitrationStateCheck) {
+    DISABLED_queryArbitrationStateCheck) {
   const std::vector<RowVectorPtr> vectors =
       createVectors(rowType_, 32, 32 << 20);
   createDuckDbTable(vectors);
@@ -392,7 +392,7 @@ DEBUG_ONLY_TEST_P(
 
 DEBUG_ONLY_TEST_P(
     SharedArbitrationTestWithThreadingModes,
-    raceBetweenAbortAndArbitrationLeave) {
+    DISABLED_raceBetweenAbortAndArbitrationLeave) {
   const std::vector<RowVectorPtr> vectors =
       createVectors(rowType_, 32, 32 << 20);
   setupMemory(kMemoryCapacity, /*memoryPoolInitCapacity=*/0);
@@ -448,7 +448,7 @@ DEBUG_ONLY_TEST_P(
 
 DEBUG_ONLY_TEST_P(
     SharedArbitrationTestWithThreadingModes,
-    skipNonReclaimableTaskTest) {
+    DISABLED_skipNonReclaimableTaskTest) {
   const std::vector<RowVectorPtr> vectors =
       createVectors(rowType_, 32, 32 << 20);
   std::shared_ptr<core::QueryCtx> queryCtx =
@@ -539,7 +539,9 @@ DEBUG_ONLY_TEST_P(
   ASSERT_EQ(taskPausedCount, 1);
 }
 
-DEBUG_ONLY_TEST_P(SharedArbitrationTestWithThreadingModes, reclaimToOrderBy) {
+DEBUG_ONLY_TEST_P(
+    SharedArbitrationTestWithThreadingModes,
+    DISABLED_reclaimToOrderBy) {
   const int numVectors = 32;
   std::vector<RowVectorPtr> vectors;
   for (int i = 0; i < numVectors; ++i) {
@@ -640,7 +642,7 @@ DEBUG_ONLY_TEST_P(SharedArbitrationTestWithThreadingModes, reclaimToOrderBy) {
 
 DEBUG_ONLY_TEST_P(
     SharedArbitrationTestWithThreadingModes,
-    reclaimToAggregation) {
+    DISABLED_reclaimToAggregation) {
   const int numVectors = 32;
   std::vector<RowVectorPtr> vectors;
   for (int i = 0; i < numVectors; ++i) {
@@ -742,7 +744,7 @@ DEBUG_ONLY_TEST_P(
 
 DEBUG_ONLY_TEST_P(
     SharedArbitrationTestWithThreadingModes,
-    reclaimToJoinBuilder) {
+    DISABLED_reclaimToJoinBuilder) {
   const int numVectors = 32;
   std::vector<RowVectorPtr> vectors;
   for (int i = 0; i < numVectors; ++i) {

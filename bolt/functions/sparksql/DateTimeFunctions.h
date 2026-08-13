@@ -1444,7 +1444,7 @@ struct FromUnixtimeFunction : public InitSessionTimezone<T> {
     }
     try {
       auto unixtimeD = unixtime + this->sessionTzOffsetInSeconds_;
-      const Timestamp timestamp{unixtimeD, 0};
+      const Timestamp timestamp = Timestamp::fromSecondsNoError(unixtimeD, 0);
       result.reserve(maxResultSize_);
       const auto resultSize = jodaDateTime_->format(
           timestamp,

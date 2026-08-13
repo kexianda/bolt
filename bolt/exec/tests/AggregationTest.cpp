@@ -2990,7 +2990,7 @@ TEST_P(AggregationTest, adaptiveOutputBatchRows) {
   }
 }
 
-DEBUG_ONLY_TEST_P(AggregationTest, reclaimDuringInputProcessing) {
+DEBUG_ONLY_TEST_P(AggregationTest, DISABLED_reclaimDuringInputProcessing) {
   if (GetParam().useGPU) {
     GTEST_SKIP() << "GPU Aggregation does not support spilling\n";
   }

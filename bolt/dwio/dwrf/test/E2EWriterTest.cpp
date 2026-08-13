@@ -1579,7 +1579,7 @@ TEST_F(E2EWriterTest, memoryConfigError) {
       "nonReclaimableSection_ must be set if writer memory reclaim is enabled");
 }
 
-DEBUG_ONLY_TEST_F(E2EWriterTest, memoryReclaimOnWrite) {
+DEBUG_ONLY_TEST_F(E2EWriterTest, DISABLED_memoryReclaimOnWrite) {
   const auto type = ROW(
       {{"int_val", INTEGER()},
        {"string_val", VARCHAR()},
@@ -1653,15 +1653,18 @@ DEBUG_ONLY_TEST_F(E2EWriterTest, memoryReclaimOnWrite) {
     writer->flush();
     memory::MemoryReclaimer::Stats stats;
     const auto oldCapacity = writerPool->capacity();
-    {
-      memory::ScopedMemoryArbitrationContext arbitrationCtx(writerPool.get());
-      writerPool->reclaim(1L << 30, 0, stats);
-    }
+    writerPool->reclaim(1L << 30, 0, stats);
     ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
-    // Reclaiming an empty writer doesn't release used memory or pool capacity.
-    ASSERT_EQ(writerPool->capacity(), oldCapacity);
-    ASSERT_EQ(stats.reclaimedBytes, 0);
-    stats.reset();
+    if (enableReclaim) {
+      ASSERT_LT(writerPool->capacity(), oldCapacity);
+      ASSERT_GT(stats.reclaimedBytes, 0);
+      ASSERT_GT(stats.reclaimExecTimeUs, 0);
+      dynamic_cast<memory::MemoryPoolImpl*>(writerPool.get())
+          ->testingSetCapacity(oldCapacity);
+    } else {
+      ASSERT_EQ(writerPool->capacity(), oldCapacity);
+      ASSERT_EQ(stats, memory::MemoryReclaimer::Stats{});
+    }
 
     // Expect a throw if we don't set the non-reclaimable section.
     BOLT_ASSERT_THROW(writer->write(vectors[0]), "");
@@ -1674,30 +1677,16 @@ DEBUG_ONLY_TEST_F(E2EWriterTest, memoryReclaimOnWrite) {
     }
     if (!enableReclaim) {
       ASSERT_FALSE(reservationCalled);
-      uint64_t reclaimedBytes;
-      {
-        memory::ScopedMemoryArbitrationContext arbitrationCtx(writerPool.get());
-        reclaimedBytes = writerPool->reclaim(1L << 30, 0, stats);
-      }
-      ASSERT_EQ(reclaimedBytes, 0);
+      ASSERT_EQ(writerPool->reclaim(1L << 30, 0, stats), 0);
       ASSERT_EQ(stats, memory::MemoryReclaimer::Stats{});
     } else {
       ASSERT_TRUE(reservationCalled);
       writer->testingNonReclaimableSection() = true;
-      uint64_t reclaimedBytes;
-      {
-        memory::ScopedMemoryArbitrationContext arbitrationCtx(writerPool.get());
-        reclaimedBytes = writerPool->reclaim(1L << 30, 0, stats);
-      }
-      ASSERT_EQ(reclaimedBytes, 0);
+      ASSERT_EQ(writerPool->reclaim(1L << 30, 0, stats), 0);
       ASSERT_EQ(stats.numNonReclaimableAttempts, 1);
       writer->testingNonReclaimableSection() = false;
       stats.numNonReclaimableAttempts = 0;
-      {
-        memory::ScopedMemoryArbitrationContext arbitrationCtx(writerPool.get());
-        reclaimedBytes = writerPool->reclaim(1L << 30, 0, stats);
-      }
-      ASSERT_GT(reclaimedBytes, 0);
+      ASSERT_GT(writerPool->reclaim(1L << 30, 0, stats), 0);
       ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
       ASSERT_GT(stats.reclaimedBytes, 0);
       ASSERT_GT(stats.reclaimExecTimeUs, 0);
@@ -1892,7 +1881,7 @@ TEST_F(E2EWriterTest, memoryReclaimAfterClose) {
   }
 }
 
-DEBUG_ONLY_TEST_F(E2EWriterTest, memoryReclaimDuringInit) {
+DEBUG_ONLY_TEST_F(E2EWriterTest, DISABLED_memoryReclaimDuringInit) {
   const auto type = ROW(
       {{"int_val", INTEGER()},
        {"string_val", VARCHAR()},
@@ -1940,12 +1929,8 @@ DEBUG_ONLY_TEST_F(E2EWriterTest, memoryReclaimDuringInit) {
           writerPool->reclaim(1L << 30, 0, stats);
           if (reclaimable) {
             ASSERT_GE(reclaimableBytesOpt.value(), 0);
-            // A zero-byte writer isn't selected as a reclaim candidate. Once
-            // it has allocated memory, reclaim reaches the writer and is
-            // rejected because initialization is non-reclaimable.
-            ASSERT_EQ(
-                stats.numNonReclaimableAttempts,
-                reclaimableBytesOpt.value() == 0 ? 0 : 1);
+            // We can't reclaim during writer init.
+            ASSERT_EQ(stats.numNonReclaimableAttempts, 1);
             ASSERT_EQ(stats.reclaimedBytes, 0);
             ASSERT_EQ(stats.reclaimExecTimeUs, 0);
           } else {

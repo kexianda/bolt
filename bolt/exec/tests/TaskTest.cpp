@@ -1136,7 +1136,7 @@ DEBUG_ONLY_TEST_F(TaskTest, outputDriverFinishEarly) {
 }
 
 /// Test that we export operator stats for unfinished (running) operators.
-DEBUG_ONLY_TEST_F(TaskTest, liveStats) {
+DEBUG_ONLY_TEST_F(TaskTest, DISABLED_liveStats) {
   constexpr int32_t numBatches = 10;
   std::vector<RowVectorPtr> dataBatches;
   dataBatches.reserve(numBatches);

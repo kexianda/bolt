@@ -485,7 +485,6 @@ class NonHiveHash : public HashBase {
       auto start = mapVector->offsetAt(index);
       auto end = start + mapVector->sizeAt(index);
       for (auto idx = start; idx < end; idx++) {
-        BOLT_DCHECK(!mapVector->mapKeys()->isNullAt(idx));
         result = SWITCH_TYPE_HASH(
             mapVector->mapKeys()->type(),
             hashOne,

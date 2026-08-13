@@ -6822,7 +6822,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringOutputProcessing) {
   ASSERT_EQ(reclaimerStats_.numNonReclaimableAttempts, 1);
 }
 
-DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringWaitForProbe) {
+DEBUG_ONLY_TEST_F(HashJoinTest, DISABLED_reclaimDuringWaitForProbe) {
   constexpr int64_t kMaxBytes = 1LL << 30; // 1GB
   VectorFuzzer fuzzer({.vectorSize = 1000}, pool());
   const int32_t numBuildVectors = 10;

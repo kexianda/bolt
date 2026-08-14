@@ -174,6 +174,7 @@ class RowReaderOptions {
   /// selective queries. Defaults to true.
   bool enableDictionaryFilter_ = false;
   bool disableFloatingPointToVarcharMetadataFilter_{false};
+  int64_t blockParquetReaderImplicitCastsInSpark_{0};
 
   int32_t decodeRepDefPageCount_{10};
   int32_t parquetRepDefMemoryLimit_{16UL << 20};
@@ -484,6 +485,16 @@ class RowReaderOptions {
     return disableFloatingPointToVarcharMetadataFilter_;
   }
 
+  void setBlockParquetReaderImplicitCastsInSpark(
+      int64_t blockParquetReaderImplicitCastsInSpark) {
+    blockParquetReaderImplicitCastsInSpark_ =
+        blockParquetReaderImplicitCastsInSpark;
+  }
+
+  int64_t blockParquetReaderImplicitCastsInSpark() const {
+    return blockParquetReaderImplicitCastsInSpark_;
+  }
+
   void setDecodeRepDefPageCount(int32_t pageCount) {
     decodeRepDefPageCount_ = pageCount;
   }
@@ -568,6 +579,8 @@ class RowReaderOptions {
     ss << "enableDictionaryFilter_=" << enableDictionaryFilter_ << ", ";
     ss << "disableFloatingPointToVarcharMetadataFilter_="
        << disableFloatingPointToVarcharMetadataFilter_ << ", ";
+    ss << "blockParquetReaderImplicitCastsInSpark_="
+       << blockParquetReaderImplicitCastsInSpark_ << ", ";
     ss << "decodeRepDefPageCount_=" << decodeRepDefPageCount_;
     ss << "parquetRepDefMemoryLimit_=" << parquetRepDefMemoryLimit_ << ", ";
     ss << "maxBatchBytes_=" << maxBatchBytes_ << ", ";

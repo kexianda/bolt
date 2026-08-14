@@ -63,8 +63,11 @@ class ParquetParams : public dwio::common::FormatParams {
       bool disableFloatingPointToVarcharMetadataFilter,
       bool enableDictionaryFilter,
       int32_t decodeRepDefPageCount,
-      int32_t parquetRepDefMemoryLimit)
+      int32_t parquetRepDefMemoryLimit,
+      int64_t blockParquetReaderImplicitCastsInSpark = 0)
       : FormatParams(pool, stats),
+        blockParquetReaderImplicitCastsInSpark(
+            blockParquetReaderImplicitCastsInSpark),
         metaData_(metaData),
         timestampPrecision_(timestampPrecision),
         fileDecryptor_(fileDecryptor),
@@ -75,6 +78,9 @@ class ParquetParams : public dwio::common::FormatParams {
         enableDictionaryFilter_(enableDictionaryFilter),
         decodeRepDefPageCount_(decodeRepDefPageCount),
         parquetRepDefMemoryLimit_(parquetRepDefMemoryLimit) {}
+
+  // Non-zero blocks Spark-only implicit casts in the Parquet column reader.
+  int64_t blockParquetReaderImplicitCastsInSpark{0};
 
   std::unique_ptr<dwio::common::FormatData> toFormatData(
       const std::shared_ptr<const dwio::common::TypeWithId>& type,

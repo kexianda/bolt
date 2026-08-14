@@ -2824,10 +2824,15 @@ TEST_F(ParquetReaderTest, varcharToBigintSchemaMismatchCast) {
   auto rowReaderOpts = getReaderOpts(readSchema);
   rowReaderOpts.setScanSpec(scanSpec);
 
-  // In non-SPARK builds this is rejected by ParquetColumnReader::matchType.
+  // Non-SPARK builds always reject this via ParquetColumnReader::matchType.
 #ifndef SPARK_COMPATIBLE
   EXPECT_THROW(reader->createRowReader(rowReaderOpts), BoltRuntimeError);
   return;
+#else
+  // Spark allows this implicit cast by default, but callers can opt out.
+  rowReaderOpts.setBlockParquetReaderImplicitCastsInSpark(1);
+  EXPECT_THROW(reader->createRowReader(rowReaderOpts), BoltRuntimeError);
+  rowReaderOpts.setBlockParquetReaderImplicitCastsInSpark(0);
 #endif
 
   // In SPARK-compatible builds, schema mismatch is allowed and cast is applied.

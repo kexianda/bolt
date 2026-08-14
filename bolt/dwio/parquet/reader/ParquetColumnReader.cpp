@@ -93,14 +93,20 @@ std::unique_ptr<dwio::common::SelectiveColumnReader> ParquetColumnReader::build(
       fileType->childByName("value")->type()->isVarbinary() &&
       fileType->childByName("metadata")->type()->isVarbinary();
 
-#ifndef SPARK_COMPATIBLE
+#ifdef SPARK_COMPATIBLE
+  const bool enforceStrictTypeMatch =
+      params.blockParquetReaderImplicitCastsInSpark != 0;
+#else
+  const bool enforceStrictTypeMatch = true;
+#endif
+  if (enforceStrictTypeMatch) {
   BOLT_CHECK(
       canReadVariantStructAsVariant ||
           matchType(fileType->type()->kind(), requestedType->type()->kind()),
       "file schema type {} can not convert to ddl type {}",
       mapTypeKindToName(fileType->type()->kind()),
       mapTypeKindToName(requestedType->type()->kind()));
-#endif
+  }
 
   switch (fileType->type()->kind()) {
     case TypeKind::INTEGER:

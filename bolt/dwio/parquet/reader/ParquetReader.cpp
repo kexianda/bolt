@@ -1603,7 +1603,8 @@ class ParquetRowReader::Impl {
         options_.disableFloatingPointToVarcharMetadataFilter(),
         options_.isDictionaryFilterEnabled(),
         options_.getDecodeRepDefPageCount(),
-        options_.getParquetRepDefMemoryLimit());
+        options_.getParquetRepDefMemoryLimit(),
+        options_.blockParquetReaderImplicitCastsInSpark());
 
     if (auto selector = options_.getSelector()) {
       requestedType_ = selector->getSchema();

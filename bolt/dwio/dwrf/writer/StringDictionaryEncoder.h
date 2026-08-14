@@ -30,6 +30,8 @@
 
 #pragma once
 
+#include <unordered_set>
+
 #include <folly/container/F14Set.h>
 #include <folly/hash/Checksum.h>
 
@@ -133,13 +135,6 @@ class StringDictionaryEncoder {
   addKey(folly::StringPiece sp, uint32_t strideIndex, uint32_t count = 1) {
     auto newIndex = size();
     detail::StringLookupKey key{sp, newIndex};
-    auto result = keyIndex_.insert(key);
-    if (!result.second) {
-      auto index = result.first->getIndex();
-      counts_[index] += count;
-      return index;
-    }
-
     auto bytesCount = keyBytes_.size();
     if (UNLIKELY(
             newIndex == std::numeric_limits<uint32_t>::max() ||
@@ -153,6 +148,17 @@ class StringDictionaryEncoder {
     hash_.append(key.hash);
     counts_.append(count);
     firstSeenStrideIndex_.append(strideIndex);
+    auto result = keyIndex_.insert(detail::DictStringId{newIndex});
+    if (!result.second) {
+      auto index = result.first->getIndex();
+      keyBytes_.resize(bytesCount);
+      keyOffsets_.resize(newIndex + 1);
+      hash_.resize(newIndex);
+      counts_.resize(newIndex);
+      firstSeenStrideIndex_.resize(newIndex);
+      counts_[index] += count;
+      return index;
+    }
     return newIndex;
   }
 
@@ -192,10 +198,10 @@ class StringDictionaryEncoder {
 
   // Intended for testing only.
   uint32_t getIndex(folly::StringPiece sp) {
-    detail::StringLookupKey key{sp, 0};
-    auto result = keyIndex_.find(key);
-    if (result != keyIndex_.end()) {
-      return result->getIndex();
+    for (const auto& key : keyIndex_) {
+      if (getKey(key.getIndex()) == sp) {
+        return key.getIndex();
+      }
     }
     return size();
   }
@@ -203,11 +209,14 @@ class StringDictionaryEncoder {
   // All keys are written in this single array.
   dwio::common::DataBuffer<char> keyBytes_;
 
-  // Set to lookup if the String is already assigned an id.
-  // An Id can only be created after appending the string, so this set
-  // leverages the heterogeneous lookup to check if the String already exists
-  // as Creating an id is expensive.
+  // Set to look up whether a string is already assigned an id. Folly's F14
+  // fallback relies on a non-portable local_iterator conversion that fails on
+  // RISC-V, so use the standard container there.
+#if defined(__riscv)
+  std::unordered_set<
+#else
   folly::F14FastSet<
+#endif
       detail::DictStringId,
       folly::transparent<DictStringIdHash>,
       folly::transparent<DictStringIdEquality>,

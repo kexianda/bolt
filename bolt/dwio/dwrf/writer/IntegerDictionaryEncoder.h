@@ -30,6 +30,8 @@
 
 #pragma once
 
+#include <unordered_set>
+
 #include <boost/sort/pdqsort/pdqsort.hpp>
 #include <folly/container/F14Set.h>
 #include "bolt/common/base/GTestMacros.h"
@@ -144,20 +146,20 @@ class IntegerDictionaryEncoder : public AbstractIntegerDictionaryEncoder {
   uint32_t addKey(Integer value, uint32_t count = 1) {
     totalCount_ += count;
     auto newIndex = size();
-    IntegerLookupKey<Integer> key{value, newIndex};
-    auto result = keyIndex_.insert(key);
-    if (!result.second) {
-      auto index = result.first->index;
-      counts_[index] += count;
-      return index;
-    }
-
     if (UNLIKELY(newIndex == std::numeric_limits<int32_t>::max())) {
       DWIO_RAISE("exceeds dictionary size limit");
     }
 
     keys_.append(value);
     counts_.append(count);
+    auto result = keyIndex_.insert(DictIntegerId<Integer>{newIndex});
+    if (!result.second) {
+      auto index = result.first->index;
+      keys_.resize(newIndex);
+      counts_.resize(newIndex);
+      counts_[index] += count;
+      return index;
+    }
     return newIndex;
   }
 
@@ -305,16 +307,20 @@ class IntegerDictionaryEncoder : public AbstractIntegerDictionaryEncoder {
   // Can throw out_of_range exception if key does not exist in dictionary.
   // This method is only used by tests
   uint32_t getIndex(Integer key) const {
-    IntegerLookupKey<Integer> lookupKey{key, 0};
-    auto ret = keyIndex_.find(lookupKey);
-    if (ret != keyIndex_.end()) {
-      return ret->index;
+    for (const auto& id : keyIndex_) {
+      if (getKey(id.index) == key) {
+        return id.index;
+      }
     }
     return size();
   }
 
   memory::MemoryPool& generalPool_;
+#if defined(__riscv)
+  std::unordered_set<
+#else
   folly::F14FastSet<
+#endif
       DictIntegerId<Integer>,
       folly::transparent<DictIntegerHash<Integer>>,
       folly::transparent<DictIntegerEquality<Integer>>,

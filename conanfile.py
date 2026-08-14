@@ -303,7 +303,12 @@ class BoltConan(ConanFile):
         cmake_layout(self, build_folder="_build")
 
     def config_options(self):
-        pass
+        if str(self.settings.arch) in ["riscv32", "riscv64"]:
+            # Bolt's JIT uses LLVM RuntimeDyldELF, which doesn't implement
+            # RISC-V relocations and aborts at runtime with "Unsupported CPU
+            # type". Disable JIT until Bolt migrates to a RISC-V-capable
+            # execution engine.
+            self.options.rm_safe("enable_jit")
 
     # Set default options of third parties here
     def configure(self):
@@ -834,10 +839,7 @@ class BoltConan(ConanFile):
         if vector_bits in ("128", "256", "512"):
             arch = "rv32gcv" if str(self.settings.arch) == "riscv32" else "rv64gcv"
             self.output.info(f"Enabling xsimd RVV backend ({vector_bits} bits)")
-            return (
-                f"{base_flags} -march={arch}_zvl{vector_bits}b "
-                "-mrvv-vector-bits=zvl"
-            )
+            return f"{base_flags} -march={arch}_zvl{vector_bits}b -mrvv-vector-bits=zvl"
 
         if vector_bits not in (None, "0"):
             raise ConanInvalidConfiguration(

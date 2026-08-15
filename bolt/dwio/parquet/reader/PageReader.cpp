@@ -908,7 +908,8 @@ void PageReader::prepareDictionary(const PageHeader& pageHeader) {
             // Expand the Parquet type length values to Bolt type length.
             // We start from the end to allow in-place expansion.
             auto sourceValue = data + (i * parquetTypeLength);
-            int64_t value = *sourceValue >= 0 ? 0 : -1;
+            int64_t value =
+                (static_cast<uint8_t>(*sourceValue) & 0x80) == 0 ? 0 : -1;
             memcpy(
                 reinterpret_cast<uint8_t*>(&value) + boltTypeLength -
                     parquetTypeLength,
@@ -931,7 +932,8 @@ void PageReader::prepareDictionary(const PageHeader& pageHeader) {
             // Expand the Parquet type length values to Bolt type length.
             // We start from the end to allow in-place expansion.
             auto sourceValue = data + (i * parquetTypeLength);
-            int128_t value = *sourceValue >= 0 ? 0 : -1;
+            int128_t value =
+                (static_cast<uint8_t>(*sourceValue) & 0x80) == 0 ? 0 : -1;
             memcpy(
                 reinterpret_cast<uint8_t*>(&value) + boltTypeLength -
                     parquetTypeLength,

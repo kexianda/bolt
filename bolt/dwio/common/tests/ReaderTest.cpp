@@ -133,6 +133,18 @@ class TestSelectiveColumnReader : public SelectiveColumnReader {
   bool returnReaderNullsForTest() const {
     return returnReaderNulls_;
   }
+
+  void forceBulkPathForTest() {
+    forceBulkPath_ = true;
+  }
+
+ protected:
+  bool useBulkPath() const override {
+    return forceBulkPath_ || SelectiveColumnReader::useBulkPath();
+  }
+
+ private:
+  bool forceBulkPath_{false};
 };
 
 class TestValueHook : public ValueHook {
@@ -367,6 +379,7 @@ TEST_F(ReaderTest, prepareOutputNullsClearsReturnedReaderNulls) {
   TestFormatParams params(*pool(), stats);
   auto fileTypeWithId = TypeWithId::create(BIGINT());
   TestSelectiveColumnReader reader(BIGINT(), fileTypeWithId, params, scanSpec);
+  reader.forceBulkPathForTest();
 
   const std::array<vector_size_t, 4> rowNumbers = {0, 1, 2, 3};
   RowSet rows(rowNumbers.data(), rowNumbers.size());

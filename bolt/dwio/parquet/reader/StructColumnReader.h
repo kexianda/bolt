@@ -99,7 +99,7 @@ class StructColumnReader : public dwio::common::SelectiveStructColumnReader {
       dwio::common::BufferedInput& input) const override;
 
  private:
-  dwio::common::SelectiveColumnReader* findBestLeaf();
+  dwio::common::SelectiveColumnReader* FOLLY_NULLABLE findBestLeaf();
 
   void enqueueRowGroup(uint32_t index, dwio::common::BufferedInput& input);
 

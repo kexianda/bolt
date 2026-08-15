@@ -254,14 +254,15 @@ TEST(ByteRle, testNulls) {
         EXPECT_EQ((i * data.size() + j) / 2, data[j])
             << "Output wrong at " << (i * data.size() + j);
       } else {
-        EXPECT_EQ(-1, data[j]) << "Output wrong at " << (i * data.size() + j);
+        EXPECT_EQ(0xff, static_cast<unsigned char>(data[j]))
+            << "Output wrong at " << (i * data.size() + j);
       }
     }
   }
   for (size_t i = 0; i < 8; ++i) {
     rle->next(data.data(), data.size(), nulls.data());
     for (size_t j = 0; j < data.size(); ++j) {
-      EXPECT_EQ(j % 2 == 0 ? -36 : -1, data[j])
+      EXPECT_EQ(j % 2 == 0 ? 0xdc : 0xff, static_cast<unsigned char>(data[j]))
           << "Output wrong at " << (i * data.size() + j + 32);
     }
   }
@@ -296,7 +297,8 @@ TEST(ByteRle, testAllNulls) {
   std::vector<uint64_t> noNull(1, bits::kNotNull64);
   rle->next(data.data(), data.size(), allNull.data());
   for (size_t i = 0; i < data.size(); ++i) {
-    EXPECT_EQ(-1, data[i]) << "Output wrong at " << i;
+    EXPECT_EQ(0xff, static_cast<unsigned char>(data[i]))
+        << "Output wrong at " << i;
   }
   rle->next(data.data(), data.size(), noNull.data());
   for (size_t i = 0; i < data.size(); ++i) {
@@ -305,12 +307,14 @@ TEST(ByteRle, testAllNulls) {
   }
   rle->next(data.data(), data.size(), allNull.data());
   for (size_t i = 0; i < data.size(); ++i) {
-    EXPECT_EQ(-1, data[i]) << "Output wrong at " << i;
+    EXPECT_EQ(0xff, static_cast<unsigned char>(data[i]))
+        << "Output wrong at " << i;
   }
   for (size_t i = 0; i < 4; ++i) {
     rle->next(data.data(), data.size(), noNull.data());
     for (size_t j = 0; j < data.size(); ++j) {
-      EXPECT_EQ(-36, data[j]) << "Output wrong at " << i;
+      EXPECT_EQ(0xdc, static_cast<unsigned char>(data[j]))
+          << "Output wrong at " << i;
     }
   }
   rle->next(data.data(), data.size(), allNull.data());

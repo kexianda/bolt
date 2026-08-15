@@ -1596,14 +1596,22 @@ class QueryConfig {
   }
 
   bool enableJitRowEqVectors() const {
+#if defined(__riscv)
+    return false;
+#else
     int32_t flag = get<int32_t>(kJitLevel, -1);
     return flag & 2;
+#endif
   }
 
   // including row < row, row = row, row cmp row
   bool enableJitRowCmpRow() const {
+#if defined(__riscv)
+    return false;
+#else
     int32_t flag = get<int32_t>(kJitLevel, -1);
     return flag & 1;
+#endif
   }
 
   int exceptionTraceLevel() const {

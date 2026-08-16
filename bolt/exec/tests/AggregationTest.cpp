@@ -4464,9 +4464,7 @@ DEBUG_ONLY_TEST_P(AggregationTest, reclaimFromAggregationOnNoMoreInput) {
     arbitrationWait.await([&] { return !arbitrationWaitFlag.load(); });
     ASSERT_TRUE(injectedPool != nullptr);
 
-    auto fakePool = fakeQueryCtx->pool()->addLeafChild(
-        "fakePool", true, exec::MemoryReclaimer::create());
-    fakePool->maybeReserve(memory::memoryManager()->arbitrator()->capacity());
+    testingRunArbitration(injectedPool.load());
 
     aggregationThread.join();
 
@@ -4506,6 +4504,7 @@ DEBUG_ONLY_TEST_P(AggregationTest, reclaimFromAggregationDuringOutput) {
     std::atomic_bool arbitrationWaitFlag{true};
     folly::EventCount taskPauseWait;
     std::atomic_bool taskPauseWaitFlag{true};
+    std::atomic<memory::MemoryPool*> injectedPool{nullptr};
 
     std::atomic_int numInputs{0};
     SCOPED_TESTVALUE_SET(
@@ -4517,6 +4516,7 @@ DEBUG_ONLY_TEST_P(AggregationTest, reclaimFromAggregationDuringOutput) {
           if (++numInputs != 5) {
             return;
           }
+          injectedPool = op->pool();
           arbitrationWaitFlag = false;
           arbitrationWait.notifyAll();
 
@@ -4552,10 +4552,9 @@ DEBUG_ONLY_TEST_P(AggregationTest, reclaimFromAggregationDuringOutput) {
     });
 
     arbitrationWait.await([&] { return !arbitrationWaitFlag.load(); });
+    ASSERT_TRUE(injectedPool != nullptr);
 
-    auto fakePool = fakeQueryCtx->pool()->addLeafChild(
-        "fakePool", true, exec::MemoryReclaimer::create());
-    fakePool->maybeReserve(memory::memoryManager()->arbitrator()->capacity());
+    testingRunArbitration(injectedPool.load());
 
     aggregationThread.join();
 

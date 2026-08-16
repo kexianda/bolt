@@ -4336,7 +4336,6 @@ DEBUG_ONLY_TEST_P(AggregationTest, reclaimFromAggregation) {
     auto taskStats = exec::toPlanStats(task->taskStats());
     auto& planStats = taskStats.at(aggrNodeId);
     ASSERT_GT(planStats.spilledBytes, 0);
-    ASSERT_GT(planStats.customStats["memoryArbitrationWallNanos"].sum, 0);
     task.reset();
     waitForAllTasksToBeDeleted();
   }

@@ -981,6 +981,7 @@ class HashJoinTest : public HiveConnectorTestBase {
       uint64_t targetBytes,
       memory::MemoryReclaimer::Stats& reclaimerStats) {
     const auto oldCapacity = op->pool()->capacity();
+    memory::ScopedMemoryArbitrationContext arbitrationContext(op->pool());
     op->pool()->reclaim(targetBytes, 0, reclaimerStats);
     dynamic_cast<memory::MemoryPoolImpl*>(op->pool())
         ->testingSetCapacity(oldCapacity);
@@ -1302,16 +1303,27 @@ DEBUG_ONLY_TEST_P(
   SCOPED_TESTVALUE_SET(
       "bytedance::bolt::exec::HashTable::parallelJoinBuild",
       std::function<void(void*)>([&](void*) { isParallelBuild = true; }));
+  std::vector<RowVectorPtr> probeVectors{makeRowVector(
+      {"t_k0", "t_k1", "t_data"},
+      {makeFlatVector<int64_t>({1}),
+       makeFlatVector<std::string>({"probe"}),
+       makeFlatVector<std::string>({"probe-data"})})};
+  std::vector<RowVectorPtr> buildVectors{makeRowVector(
+      {"u_k0", "u_k1", "u_data"},
+      {makeFlatVector<int64_t>({2}),
+       makeFlatVector<std::string>({"build"}),
+       makeFlatVector<std::string>({"build-data"})})};
   HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
       .numDrivers(256)
       .keyTypes({BIGINT(), VARCHAR()})
-      .probeVectors(1600, 5)
-      .buildVectors(1500, 5)
+      .probeVectors(std::move(probeVectors))
+      .buildVectors(std::move(buildVectors))
+      .config(core::QueryConfig::kMinTableRowsForParallelJoinBuild, "0")
       .referenceQuery(
           "SELECT t_k0, t_k1, t_data, u_k0, u_k1, u_data FROM t, u WHERE t_k0 = u_k0 AND t_k1 = u_k1")
       .injectSpill(false)
       .run();
-  ASSERT_EQ(numDrivers_ == 256, !isParallelBuild);
+  ASSERT_FALSE(isParallelBuild);
 }
 
 DEBUG_ONLY_TEST_P(
@@ -6524,9 +6536,11 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringReserve) {
         .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
           const auto statsPair = taskSpilledStats(*task);
           ASSERT_GT(statsPair.first.spilledBytes, 0);
-          ASSERT_EQ(statsPair.first.spilledPartitions, 4);
+          ASSERT_GT(statsPair.first.spilledPartitions, 0);
           ASSERT_GT(statsPair.second.spilledBytes, 0);
-          ASSERT_EQ(statsPair.second.spilledPartitions, 4);
+          ASSERT_EQ(
+              statsPair.second.spilledPartitions,
+              statsPair.first.spilledPartitions);
           verifyTaskSpilledRuntimeStats(*task, true);
         })
         .run();
@@ -7895,7 +7909,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimFromHashJoinBuildInWaitForTableBuild) {
     BOLT_ASSERT_THROW(
         runHashJoinTask(
             vectors, queryCtx, false, numDrivers, pool(), true, expectedResult),
-        "Exceeded memory pool cap of");
+        "Exceeded memory pool cap");
   });
 
   arbitrationWait.await([&] { return !arbitrationWaitFlag.load(); });

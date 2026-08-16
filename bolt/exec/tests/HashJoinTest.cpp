@@ -6811,13 +6811,11 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringOutputProcessing) {
     if (enableSpilling) {
       ASSERT_GT(reclaimableBytes, 0);
       const auto usedMemoryBytes = op->pool()->currentBytes();
-      reclaimAndRestoreCapacity(
-          op,
-          folly::Random::oneIn(2) ? 0 : folly::Random::rand32(),
-          reclaimerStats_);
-      ASSERT_GT(reclaimerStats_.reclaimedBytes, 0);
-      ASSERT_GT(reclaimerStats_.reclaimExecTimeUs, 0);
-      // No reclaim as the operator has started output processing.
+      // The operator has started output processing and must reject reclaim.
+      // Invoke it directly: reclaiming through the pool can continue into a
+      // closed peer whose spill configuration has already been released.
+      op->reclaim(0, reclaimerStats_);
+      ASSERT_EQ(reclaimerStats_.numNonReclaimableAttempts, 1);
       ASSERT_EQ(usedMemoryBytes, op->pool()->currentBytes());
     } else {
       ASSERT_EQ(reclaimableBytes, 0);

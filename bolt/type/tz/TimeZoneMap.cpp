@@ -71,9 +71,31 @@ const ::date::time_zone* locateZoneImpl(std::string_view tz_name) {
 const ::date::time_zone* locateZoneFromDatabase(std::string_view name) {
   const auto& links = getTimeZoneLinks();
   const auto link = links.find(std::string{name});
-  const std::string_view canonicalName =
+  std::string_view canonicalName =
       link == links.end() ? name : std::string_view{link->second};
-  return locateZoneImpl(canonicalName);
+  try {
+    return locateZoneImpl(canonicalName);
+  } catch (const std::exception&) {
+    // Minimal tzdata installations can omit these POSIX-style compatibility
+    // zones. Fall back to representative IANA zones with the same modern
+    // daylight-saving rules.
+    static const std::unordered_map<std::string_view, std::string_view>
+        kPosixZoneFallbacks = {
+            {"CET", "Europe/Paris"},
+            {"CST6CDT", "America/Chicago"},
+            {"EET", "Europe/Athens"},
+            {"EST5EDT", "America/New_York"},
+            {"MET", "Europe/Paris"},
+            {"MST7MDT", "America/Denver"},
+            {"PST8PDT", "America/Los_Angeles"},
+            {"WET", "Europe/Lisbon"},
+        };
+    const auto fallback = kPosixZoneFallbacks.find(name);
+    if (fallback == kPosixZoneFallbacks.end()) {
+      throw;
+    }
+    return locateZoneImpl(fallback->second);
+  }
 }
 
 // Flattens the input vector of pairs into a vector, assuming that the

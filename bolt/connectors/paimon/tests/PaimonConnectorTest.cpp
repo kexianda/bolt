@@ -55,6 +55,16 @@ class PaimonConnectorTest
     : public bytedance::bolt::exec::test::OperatorTestBase {
  protected:
   static void SetUpTestCase() {
+    const auto python = pythonExecutableForTests();
+    folly::Subprocess dependencyCheck(
+        {python, "-c", "import pypaimon"},
+        folly::Subprocess::Options().usePath());
+    const auto dependencyStatus = dependencyCheck.wait();
+    if (!dependencyStatus.exited() || dependencyStatus.exitStatus() != 0) {
+      GTEST_SKIP() << "pypaimon is not available to create integration test "
+                      "tables";
+    }
+
     // Create a temporary directory for the test
     tempDir_ = exec::test::TempDirectoryPath::create();
     LOG(INFO) << "Test using temporary directory: " << tempDir_->path;
@@ -71,15 +81,19 @@ class PaimonConnectorTest
       scriptPath = "./bolt/connectors/paimon/tests/create_test_tables.py";
     }
     folly::Subprocess process(
-        {pythonExecutableForTests(), scriptPath, "--base-path", tempDir_->path},
+        {python, scriptPath, "--base-path", tempDir_->path},
         folly::Subprocess::Options().usePath());
     const auto status = process.wait();
     CHECK(status.exited() && status.exitStatus() == 0)
         << "Failed to create test tables: " << status.str();
     exec::test::OperatorTestBase::SetUpTestCase();
+    testSuiteInitialized_ = true;
   }
 
   static void TearDownTestCase() {
+    if (!testSuiteInitialized_) {
+      return;
+    }
     tempDir_.reset();
     exec::test::OperatorTestBase::TearDownTestCase();
   }
@@ -108,10 +122,12 @@ class PaimonConnectorTest
   }
 
   static std::shared_ptr<exec::test::TempDirectoryPath> tempDir_;
+  static bool testSuiteInitialized_;
 };
 
 std::shared_ptr<exec::test::TempDirectoryPath> PaimonConnectorTest::tempDir_ =
     nullptr;
+bool PaimonConnectorTest::testSuiteInitialized_ = false;
 
 std::vector<std::shared_ptr<PaimonConnectorSplit>> makeConnectorSplits(
     const std::shared_ptr<::paimon::Plan>& paimonPlan,

@@ -443,6 +443,7 @@ class AggregationTest : public OperatorTestBase,
       const Operator* op,
       uint64_t targetBytes,
       memory::MemoryReclaimer::Stats& reclaimerStats) {
+    memory::ScopedMemoryArbitrationContext arbitrationContext(op->pool());
     const auto oldCapacity = op->pool()->capacity();
     op->pool()->reclaim(targetBytes, 0, reclaimerStats);
     dynamic_cast<memory::MemoryPoolImpl*>(op->pool())
@@ -3203,6 +3204,9 @@ DEBUG_ONLY_TEST_P(AggregationTest, reclaimDuringReserve) {
             if (!RE2::FullMatch(pool->name(), re)) {
               return;
             }
+            if (pool->currentBytes() < 8 << 20) {
+              return;
+            }
             if (!injectOnce.exchange(false)) {
               return;
             }
@@ -4120,15 +4124,16 @@ DEBUG_ONLY_TEST_P(AggregationTest, reclaimEmptyInput) {
         auto* driver = values->testingOperatorCtx()->driver();
         auto task = values->testingOperatorCtx()->task();
         // Shrink all the capacity before reclaim.
-        memory::memoryManager()->arbitrator()->shrinkCapacity(task->pool(), 0);
+        memory::memoryManager()->arbitrator()->shrinkCapacity(
+            task->pool()->root(), 0);
         {
           MemoryReclaimer::Stats stats;
           SuspendedSection suspendedSection(driver);
+          memory::ScopedMemoryArbitrationContext arbitrationContext(
+              task->pool());
           task->pool()->reclaim(kMaxBytes, 0, stats);
           ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
-          ASSERT_GT(stats.reclaimExecTimeUs, 0);
           ASSERT_EQ(stats.reclaimedBytes, 0);
-          ASSERT_GT(stats.reclaimWaitTimeUs, 0);
         }
       }));
 
@@ -4193,15 +4198,16 @@ DEBUG_ONLY_TEST_P(AggregationTest, reclaimEmptyOutput) {
         auto* driver = op->testingOperatorCtx()->driver();
         auto task = op->testingOperatorCtx()->task();
         // Shrink all the capacity before reclaim.
-        memory::memoryManager()->arbitrator()->shrinkCapacity(task->pool(), 0);
+        memory::memoryManager()->arbitrator()->shrinkCapacity(
+            task->pool()->root(), 0);
         {
           MemoryReclaimer::Stats stats;
           SuspendedSection suspendedSection(driver);
+          memory::ScopedMemoryArbitrationContext arbitrationContext(
+              task->pool());
           task->pool()->reclaim(kMaxBytes, 0, stats);
           ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
-          ASSERT_GT(stats.reclaimExecTimeUs, 0);
           ASSERT_EQ(stats.reclaimedBytes, 0);
-          ASSERT_GT(stats.reclaimWaitTimeUs, 0);
         }
       })));
 

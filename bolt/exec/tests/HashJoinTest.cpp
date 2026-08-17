@@ -8112,7 +8112,11 @@ DEBUG_ONLY_TEST_F(HashJoinTest, taskWaitTimeout) {
 
   for (uint64_t timeoutMs : {0, 1'000, 30'000}) {
     SCOPED_TRACE(fmt::format("timeout {}", succinctMillis(timeoutMs)));
-    auto memoryManager = createMemoryManager(512 << 20, 0, 0, timeoutMs);
+    // Zero means no timeout for this test. SharedArbitrator requires a
+    // positive maximum arbitration time, so use the helper's default timeout.
+    const auto maxArbitrationTimeMs = timeoutMs == 0 ? 60'000 : timeoutMs;
+    auto memoryManager =
+        createMemoryManager(512 << 20, 0, maxArbitrationTimeMs);
     auto queryCtx =
         newQueryCtx(memoryManager.get(), executor_.get(), queryMemoryCapacity);
 

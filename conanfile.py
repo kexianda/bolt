@@ -189,7 +189,7 @@ class BoltConan(ConanFile):
         )
         self.requires("arrow/15.0.1-oss", transitive_headers=True, transitive_libs=True)
         if self.options.get_safe("enable_jit"):
-            self.requires("llvm-core/19.1.7-bolt")
+            self.requires("llvm-core/20.2.0")
 
         if self.options.get_safe("enable_s3"):
             self.requires(
@@ -301,14 +301,6 @@ class BoltConan(ConanFile):
 
     def layout(self):
         cmake_layout(self, build_folder="_build")
-
-    def config_options(self):
-        if str(self.settings.arch) in ["riscv32", "riscv64"]:
-            # Bolt's JIT uses LLVM RuntimeDyldELF, which doesn't implement
-            # RISC-V relocations and aborts at runtime with "Unsupported CPU
-            # type". Disable JIT until Bolt migrates to a RISC-V-capable
-            # execution engine.
-            self.options.rm_safe("enable_jit")
 
     # Set default options of third parties here
     def configure(self):

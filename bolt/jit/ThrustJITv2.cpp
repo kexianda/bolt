@@ -19,8 +19,7 @@
 #include "bolt/jit/ThrustJITv2.h"
 
 #include "llvm/ExecutionEngine/Orc/ExecutionUtils.h"
-#include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
-#include "llvm/ExecutionEngine/SectionMemoryManager.h"
+#include "llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h"
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Support/TargetSelect.h"
 
@@ -30,6 +29,50 @@
 #include <vector>
 
 namespace bytedance::bolt::jit {
+
+namespace {
+
+class CodeSizeTrackingPlugin final
+    : public llvm::orc::LinkGraphLinkingLayer::Plugin {
+ public:
+  explicit CodeSizeTrackingPlugin(ThrustJITv2::CodeSizeTracker& tracker)
+      : tracker_(tracker) {}
+
+  void notifyMaterializing(
+      llvm::orc::MaterializationResponsibility& mr,
+      llvm::jitlink::LinkGraph&,
+      llvm::jitlink::JITLinkContext&,
+      llvm::MemoryBufferRef inputObject) override {
+    if (auto err = mr.withResourceKeyDo([&](llvm::orc::ResourceKey key) {
+          tracker_.addAllocatedBytes(key, inputObject.getBufferSize());
+        })) {
+      llvm::consumeError(std::move(err));
+    }
+  }
+
+  llvm::Error notifyFailed(llvm::orc::MaterializationResponsibility&) override {
+    return llvm::Error::success();
+  }
+
+  llvm::Error notifyRemovingResources(
+      llvm::orc::JITDylib&,
+      llvm::orc::ResourceKey key) override {
+    tracker_.take(key);
+    return llvm::Error::success();
+  }
+
+  void notifyTransferringResources(
+      llvm::orc::JITDylib&,
+      llvm::orc::ResourceKey dstKey,
+      llvm::orc::ResourceKey srcKey) override {
+    tracker_.transfer(dstKey, srcKey);
+  }
+
+ private:
+  ThrustJITv2::CodeSizeTracker& tracker_;
+};
+
+} // namespace
 
 llvm::Expected<std::unique_ptr<ThrustJITv2>> ThrustJITv2::Create() {
   static std::once_flag llvmTargetInitialized;
@@ -41,37 +84,24 @@ llvm::Expected<std::unique_ptr<ThrustJITv2>> ThrustJITv2::Create() {
   });
 
   auto result = std::unique_ptr<ThrustJITv2>(new ThrustJITv2());
+  auto targetMachineBuilder = llvm::orc::JITTargetMachineBuilder::detectHost();
+  if (!targetMachineBuilder) {
+    return targetMachineBuilder.takeError();
+  }
+  targetMachineBuilder->setRelocationModel(llvm::Reloc::PIC_);
   auto jit =
       llvm::orc::LLJITBuilder()
+          .setJITTargetMachineBuilder(std::move(*targetMachineBuilder))
           .setNumCompileThreads(8)
           .setObjectLinkingLayerCreator(
               [tracker = &result->codeSizeTracker_](
                   llvm::orc::ExecutionSession& executionSession,
                   const llvm::Triple&)
                   -> llvm::Expected<std::unique_ptr<llvm::orc::ObjectLayer>> {
-                auto layer = std::make_unique<
-                    llvm::orc::RTDyldObjectLinkingLayer>(
-                    executionSession,
-                    []() -> std::unique_ptr<llvm::RuntimeDyld::MemoryManager> {
-                      return std::make_unique<llvm::SectionMemoryManager>();
-                    });
-                layer->setNotifyLoaded(
-                    [tracker](
-                        llvm::orc::MaterializationResponsibility& mr,
-                        const llvm::object::ObjectFile& obj,
-                        const llvm::RuntimeDyld::LoadedObjectInfo&) {
-                      llvm::orc::ResourceKey resourceKey = 0;
-                      if (auto err = mr.withResourceKeyDo(
-                              [&](llvm::orc::ResourceKey key) {
-                                resourceKey = key;
-                              })) {
-                        llvm::consumeError(std::move(err));
-                        return;
-                      }
-                      tracker->addAllocatedBytes(
-                          resourceKey,
-                          obj.getMemoryBufferRef().getBufferSize());
-                    });
+                auto layer = std::make_unique<llvm::orc::ObjectLinkingLayer>(
+                    executionSession);
+                layer->addPlugin(
+                    std::make_shared<CodeSizeTrackingPlugin>(*tracker));
                 return std::unique_ptr<llvm::orc::ObjectLayer>(
                     std::move(layer));
               })
@@ -195,12 +225,14 @@ CompiledModuleSP ThrustJITv2::CompileModule(
   {
     std::lock_guard lock(mutex_);
     compiledModuleCache_.put(funcName, compiledModule);
-    if (memoryUsage_.load(std::memory_order_acquire) >
-            memoryLimit_.load(std::memory_order_acquire) &&
-        compiledModuleCache_.size() > 1) {
+    while (memoryUsage_.load(std::memory_order_acquire) >
+               memoryLimit_.load(std::memory_order_acquire) &&
+           compiledModuleCache_.size() > 1) {
       auto oldestKey = compiledModuleCache_.oldestKey();
       if (oldestKey.has_value() && *oldestKey != funcName) {
         compiledModuleCache_.erase(*oldestKey);
+      } else {
+        break;
       }
     }
     compilingFunctions_.erase(funcName);

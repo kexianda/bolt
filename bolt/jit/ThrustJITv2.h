@@ -56,6 +56,18 @@ class ThrustJITv2 {
       return codeSize;
     }
 
+    void transfer(
+        llvm::orc::ResourceKey dstKey,
+        llvm::orc::ResourceKey srcKey) {
+      std::lock_guard lock(mutex_);
+      auto it = resourceSizes_.find(srcKey);
+      if (it == resourceSizes_.end()) {
+        return;
+      }
+      resourceSizes_[dstKey] += it->second;
+      resourceSizes_.erase(it);
+    }
+
    private:
     std::mutex mutex_;
     std::unordered_map<llvm::orc::ResourceKey, size_t> resourceSizes_;

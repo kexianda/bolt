@@ -4406,6 +4406,15 @@ DEBUG_ONLY_TEST_F(
   folly::EventCount writerCloseWait;
   std::atomic_bool taskReclaimWaitFlag{true};
   folly::EventCount taskReclaimWait;
+  std::shared_ptr<Task> task;
+  SCOPED_TESTVALUE_SET(
+      "bytedance::bolt::exec::Driver::runInternal::noMoreInput",
+      std::function<void(Operator*)>(([&](Operator* op) {
+        if (op->operatorType() == "TableWrite") {
+          task = op->testingOperatorCtx()->task();
+        }
+      })));
+
   SCOPED_TESTVALUE_SET(
       "bytedance::bolt::dwrf::Writer::flushStripe",
       std::function<void(dwrf::Writer*)>(([&](dwrf::Writer* writer) {
@@ -4434,9 +4443,13 @@ DEBUG_ONLY_TEST_F(
   });
 
   writerCloseWait.await([&]() { return !writerCloseWaitFlag.load(); });
+  ASSERT_NE(task, nullptr);
 
-  memory::testingRunArbitration();
+  auto pauseWait = task->requestPause();
+  pauseWait.wait();
+  Task::resume(task);
 
   queryThread.join();
+  task.reset();
   waitForAllTasksToBeDeleted();
 }

@@ -4334,8 +4334,16 @@ DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, tableWriteReclaimOnClose) {
         // The injection memory allocation to cause maybeReserve on writer close
         // to trigger memory arbitration. The latter tries to reclaim memory
         // from this file writer.
-        const size_t injectAllocationSize =
+        const size_t availableBytes =
             pool->freeBytes() + arbitrator->stats().freeCapacityBytes;
+        constexpr size_t kWriterCloseHeadroom = 4 * kMemoryPoolInitCapacity;
+        BOLT_CHECK_GT(availableBytes, kWriterCloseHeadroom);
+        // Leave enough headroom for allocations made before flushStripe. The
+        // writer's close path still needs to arbitrate, but the arbitrator
+        // must not abort the fake pool before flushStripe releases this
+        // allocation. The amount of pre-flush memory varies by architecture.
+        const size_t injectAllocationSize =
+            availableBytes - kWriterCloseHeadroom;
         fakeAllocation = TestAllocation{
             .pool = fakePool.get(),
             .buffer = fakePool->allocate(injectAllocationSize),

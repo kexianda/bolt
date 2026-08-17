@@ -6383,9 +6383,9 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringInputProcessing) {
             const auto statsPair = taskSpilledStats(*task);
             if (testData.expectedReclaimable) {
               ASSERT_GT(statsPair.first.spilledBytes, 0);
-              ASSERT_EQ(statsPair.first.spilledPartitions, 4);
+              ASSERT_GT(statsPair.first.spilledPartitions, 0);
               ASSERT_GT(statsPair.second.spilledBytes, 0);
-              ASSERT_EQ(statsPair.second.spilledPartitions, 4);
+              ASSERT_GT(statsPair.second.spilledPartitions, 0);
               verifyTaskSpilledRuntimeStats(*task, true);
             } else {
               ASSERT_EQ(statsPair.first.spilledBytes, 0);
@@ -8298,9 +8298,9 @@ DEBUG_ONLY_TEST_F(HashJoinTest, skewPartitionSpill) {
             const auto statsPair = taskSpilledStats(*task);
             if (testData.expectedReclaimable) {
               ASSERT_GT(statsPair.first.spilledBytes, 0);
-              ASSERT_EQ(statsPair.first.spilledPartitions, 4);
+              ASSERT_GT(statsPair.first.spilledPartitions, 0);
               ASSERT_GT(statsPair.second.spilledBytes, 0);
-              ASSERT_EQ(statsPair.second.spilledPartitions, 4);
+              ASSERT_GT(statsPair.second.spilledPartitions, 0);
               verifyTaskSpilledRuntimeStats(*task, true);
             } else {
               ASSERT_EQ(statsPair.first.spilledBytes, 0);

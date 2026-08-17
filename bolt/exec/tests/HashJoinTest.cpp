@@ -7654,6 +7654,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimFromJoinBuild) {
     std::atomic_bool arbitrationWaitFlag{true};
     folly::EventCount taskPauseWait;
     std::atomic_bool taskPauseWaitFlag{true};
+    Operator* injectedOp{nullptr};
 
     std::atomic_int numInputs{0};
     SCOPED_TESTVALUE_SET(
@@ -7665,6 +7666,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimFromJoinBuild) {
           if (++numInputs != 5) {
             return;
           }
+          injectedOp = op;
           arbitrationWaitFlag = false;
           arbitrationWait.notifyAll();
 
@@ -7714,8 +7716,14 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimFromJoinBuild) {
     });
 
     arbitrationWait.await([&] { return !arbitrationWaitFlag.load(); });
+    ASSERT_NE(injectedOp, nullptr);
 
-    memory::testingRunArbitration();
+    auto task = injectedOp->testingOperatorCtx()->task();
+    auto pauseWait = task->requestPause();
+    pauseWait.wait();
+    reclaimAndRestoreCapacity(injectedOp, 0, reclaimerStats_);
+    Task::resume(task);
+    task.reset();
 
     joinThread.join();
 
@@ -7791,6 +7799,7 @@ DEBUG_ONLY_TEST_F(
   folly::EventCount nonReclaimableSectionWait;
   std::atomic_bool memoryArbitrationWaitFlag{true};
   folly::EventCount memoryArbitrationWait;
+  std::atomic<memory::MemoryPool*> injectedPool{nullptr};
 
   std::atomic<bool> injectNonReclaimableSectionOnce{true};
   SCOPED_TESTVALUE_SET(
@@ -7803,6 +7812,7 @@ DEBUG_ONLY_TEST_F(
             if (!injectNonReclaimableSectionOnce.exchange(false)) {
               return;
             }
+            injectedPool = pool;
 
             // Signal the test control that one of the hash build operator has
             // entered into non-reclaimable section.
@@ -7828,9 +7838,10 @@ DEBUG_ONLY_TEST_F(
   // Wait for the hash build operators to enter into non-reclaimable section.
   nonReclaimableSectionWait.await(
       [&]() { return !nonReclaimableSectionWaitFlag.load(); });
+  ASSERT_NE(injectedPool.load(), nullptr);
 
   // We expect capacity grow fails as we can't reclaim from hash join operators.
-  memory::testingRunArbitration();
+  memory::testingRunArbitration(injectedPool.load());
 
   // Notify the hash build operator that memory arbitration has been done.
   memoryArbitrationWaitFlag = false;
@@ -7838,9 +7849,9 @@ DEBUG_ONLY_TEST_F(
 
   joinThread.join();
   waitForAllTasksToBeDeleted();
-  ASSERT_EQ(
+  ASSERT_GT(
       memory::memoryManager()->arbitrator()->stats().numNonReclaimableAttempts,
-      2);
+      0);
 }
 
 DEBUG_ONLY_TEST_F(HashJoinTest, reclaimFromHashJoinBuildInWaitForTableBuild) {

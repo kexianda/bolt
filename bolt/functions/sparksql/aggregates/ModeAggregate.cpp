@@ -42,6 +42,53 @@ namespace bytedance::bolt::functions::aggregate::sparksql {
 
 namespace {
 
+#if defined(__riscv)
+template <typename T>
+class ModeMapAllocator {
+ public:
+  using value_type = T;
+
+  template <typename U>
+  struct rebind {
+    using other = ModeMapAllocator<U>;
+  };
+
+  explicit ModeMapAllocator(HashStringAllocator* allocator)
+      : allocator_{allocator} {}
+
+  template <typename U>
+  ModeMapAllocator(const ModeMapAllocator<U>& other)
+      : allocator_{other.allocator()} {}
+
+  T* allocate(std::size_t n) {
+    const auto bytes = checkedMultiply(n, sizeof(T));
+    return reinterpret_cast<T*>(allocator_->allocate(bytes)->begin());
+  }
+
+  void deallocate(T* /*ptr*/, std::size_t /*n*/) noexcept {}
+
+  HashStringAllocator* allocator() const {
+    return allocator_;
+  }
+
+  template <typename U>
+  bool operator==(const ModeMapAllocator<U>& other) const {
+    return allocator_ == other.allocator();
+  }
+
+  template <typename U>
+  bool operator!=(const ModeMapAllocator<U>& other) const {
+    return !(*this == other);
+  }
+
+ private:
+  HashStringAllocator* allocator_;
+};
+#else
+template <typename T>
+using ModeMapAllocator = AlignedStlAllocator<T, 16>;
+#endif
+
 // Mode aggregate function for scalar types.
 template <
     typename T,
@@ -61,14 +108,13 @@ class ModeAggregate {
         int64_t,
         Hash,
         EqualTo,
-        AlignedStlAllocator<std::pair<const T, int64_t>, 16>>;
+        ModeMapAllocator<std::pair<const T, int64_t>>>;
 
     // A map of T -> count.
     ValueMap values;
 
     explicit AccumulatorType(HashStringAllocator* allocator)
-        : values{AlignedStlAllocator<std::pair<const T, int64_t>, 16>(
-              allocator)} {}
+        : values{ModeMapAllocator<std::pair<const T, int64_t>>(allocator)} {}
 
     explicit AccumulatorType(
         HashStringAllocator* allocator,
@@ -132,7 +178,7 @@ class StringModeAggregate {
         int64_t,
         std::hash<StringView>,
         std::equal_to<StringView>,
-        AlignedStlAllocator<std::pair<const StringView, int64_t>, 16>>;
+        ModeMapAllocator<std::pair<const StringView, int64_t>>>;
 
     // A map of unique StringViews pointing to storage managed by 'strings'.
     ValueMap values;
@@ -141,7 +187,7 @@ class StringModeAggregate {
     Strings strings;
 
     explicit AccumulatorType(HashStringAllocator* allocator)
-        : values{AlignedStlAllocator<std::pair<const StringView, int64_t>, 16>(
+        : values{ModeMapAllocator<std::pair<const StringView, int64_t>>(
               allocator)} {}
 
     explicit AccumulatorType(
@@ -212,9 +258,8 @@ struct ComplexTypeAccumulator {
       int64_t,
       AddressableNonNullValueList::Hash,
       AddressableNonNullValueList::EqualTo,
-      AlignedStlAllocator<
-          std::pair<const AddressableNonNullValueList::Entry, int64_t>,
-          16>>;
+      ModeMapAllocator<
+          std::pair<const AddressableNonNullValueList::Entry, int64_t>>>;
 
   ValueMap values;
 
@@ -225,9 +270,9 @@ struct ComplexTypeAccumulator {
             0,
             AddressableNonNullValueList::Hash{},
             AddressableNonNullValueList::EqualTo{type},
-            AlignedStlAllocator<
-                std::pair<const AddressableNonNullValueList::Entry, int64_t>,
-                16>(allocator)} {}
+            ModeMapAllocator<
+                std::pair<const AddressableNonNullValueList::Entry, int64_t>>(
+                allocator)} {}
 
   size_t size() const {
     return values.size();

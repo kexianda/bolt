@@ -128,6 +128,12 @@ inline uint64_t hashOne(T value) {
   return XXH64(&value, sizeof(T), 0);
 }
 
+template <>
+inline uint64_t hashOne<int128_t>(int128_t value) {
+  const uint64_t words[] = {HugeInt::lower(value), HugeInt::upper(value)};
+  return XXH64(words, sizeof(words), 0);
+}
+
 // Use timestamp.toMillis() to compute hash value.
 template <>
 inline uint64_t hashOne<Timestamp>(Timestamp value) {

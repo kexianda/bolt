@@ -496,9 +496,10 @@ TEST_F(HashStringAllocatorTest, alignedStlAllocatorWithF14Map) {
 
   allocator_->checkConsistency();
 
-  // We allow for some overhead for free lists after all is freed. Map tends to
-  // generate more free blocks at the end, so we loosen the upper bound a bit.
-  EXPECT_LE(allocator_->retainedSize() - allocator_->freeSpace(), 130);
+  // We allow for some overhead for free lists after all is freed. F14's
+  // allocation layout varies across architectures and may leave as much
+  // overhead as std::unordered_set above.
+  EXPECT_LE(allocator_->retainedSize() - allocator_->freeSpace(), 220);
 }
 
 TEST_F(HashStringAllocatorTest, stlAllocatorOverflow) {

@@ -49,7 +49,10 @@ void appendInt32(std::string& out, int32_t value) {
 }
 
 std::string encodeLevels(const std::vector<int16_t>& levels, int bitWidth) {
-  std::string encoded(levels.size() * sizeof(int16_t) + 64, '\0');
+  const auto bufferSize = std::max<size_t>(
+      levels.size() * sizeof(int16_t) + 64,
+      ::arrow::util::RleEncoder::MinBufferSize(bitWidth));
+  std::string encoded(bufferSize, '\0');
   ::arrow::util::RleEncoder encoder(
       reinterpret_cast<uint8_t*>(encoded.data()), encoded.size(), bitWidth);
   for (auto level : levels) {

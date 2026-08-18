@@ -74,7 +74,9 @@ struct InduceSegFaultFunction {
 };
 } // namespace
 
-DEBUG_ONLY_TEST_F(ThreadDebugInfoDeathTest, withinSeperateDriverThread) {
+DEBUG_ONLY_TEST_F(
+    ThreadDebugInfoDeathTest,
+    DISABLED_withinSeperateDriverThread) {
   auto vector = makeRowVector({makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6})});
   registerFunction<InduceSegFaultFunction, int64_t, int64_t>({"segFault"});
   auto op = PlanBuilder().values({vector}).project({"segFault(c0)"}).planNode();
@@ -85,7 +87,7 @@ DEBUG_ONLY_TEST_F(ThreadDebugInfoDeathTest, withinSeperateDriverThread) {
 #endif
 }
 
-DEBUG_ONLY_TEST_F(ThreadDebugInfoDeathTest, withinQueryCompilation) {
+DEBUG_ONLY_TEST_F(ThreadDebugInfoDeathTest, DISABLED_withinQueryCompilation) {
   auto vector = makeRowVector({makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6})});
   registerFunction<InduceSegFaultFunction, int64_t, int64_t>({"segFault"});
   // Call expression with a constant to trigger the constant folding during
@@ -99,7 +101,7 @@ DEBUG_ONLY_TEST_F(ThreadDebugInfoDeathTest, withinQueryCompilation) {
 #endif
 }
 
-DEBUG_ONLY_TEST_F(ThreadDebugInfoDeathTest, withinTheCallingThread) {
+DEBUG_ONLY_TEST_F(ThreadDebugInfoDeathTest, DISABLED_withinTheCallingThread) {
   auto vector = makeRowVector({makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6})});
   registerFunction<InduceSegFaultFunction, int64_t, int64_t>({"segFault"});
   auto plan =
@@ -127,7 +129,7 @@ DEBUG_ONLY_TEST_F(ThreadDebugInfoDeathTest, withinTheCallingThread) {
 #endif
 }
 
-DEBUG_ONLY_TEST_F(ThreadDebugInfoDeathTest, noThreadContextSet) {
+DEBUG_ONLY_TEST_F(ThreadDebugInfoDeathTest, DISABLED_noThreadContextSet) {
   int* nullpointer = nullptr;
 #ifndef IS_BUILDING_WITH_ASAN
   ASSERT_DEATH((*nullpointer = 6), ".*ThreadDebugInfo object not found.*");

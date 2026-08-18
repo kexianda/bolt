@@ -30,12 +30,31 @@
 
 #include "bolt/common/process/ThreadDebugInfo.h"
 
+#include <algorithm>
+
 #include <folly/Unit.h>
 #include <folly/init/Init.h>
 #include <gtest/gtest.h>
+#include <sys/resource.h>
+
+namespace {
+
+void raiseFileDescriptorLimit() {
+  constexpr rlim_t kRequired = 10000;
+  struct rlimit limit;
+  if (getrlimit(RLIMIT_NOFILE, &limit) != 0 || limit.rlim_cur >= kRequired) {
+    return;
+  }
+
+  limit.rlim_cur = std::min(limit.rlim_max, kRequired);
+  (void)setrlimit(RLIMIT_NOFILE, &limit);
+}
+
+} // namespace
 
 // This main is needed for some tests on linux.
 int main(int argc, char** argv) {
+  raiseFileDescriptorLimit();
   testing::InitGoogleTest(&argc, argv);
   // Signal handler required for ThreadDebugInfoTest
   bytedance::bolt::process::addDefaultFatalSignalHandler();

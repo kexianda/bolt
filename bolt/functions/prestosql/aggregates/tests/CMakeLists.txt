@@ -76,7 +76,10 @@ endif()
 
 add_executable(bolt_aggregates_test ${AGGREGATES_TEST_SRC})
 
-bolt_add_sharded_gtest(bolt_aggregates_test 6)
+# Keep each process small. Some dependencies retain per-test thread and DuckDB
+# state until process exit, which can exhaust file descriptors or race database
+# teardown in this large suite.
+bolt_add_sharded_gtest(bolt_aggregates_test 24 3000)
 
 set(BOLT_AGGREGATES_TEST_DEPENDENCIES
     bolt_aggregates

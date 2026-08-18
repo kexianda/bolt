@@ -147,7 +147,7 @@ StructColumnReader::StructColumnReader(
   }
 }
 
-dwio::common::SelectiveColumnReader* FOLLY_NONNULL
+dwio::common::SelectiveColumnReader* FOLLY_NULLABLE
 StructColumnReader::findBestLeaf() {
   SelectiveColumnReader* best = nullptr;
   for (auto i = 0; i < children_.size(); ++i) {
@@ -168,7 +168,6 @@ StructColumnReader::findBestLeaf() {
       best = child;
     }
   }
-  assert(best);
   return best;
 }
 

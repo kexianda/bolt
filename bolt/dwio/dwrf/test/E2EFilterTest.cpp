@@ -279,10 +279,12 @@ TEST_F(E2EFilterTest, stringDirect) {
       20,
       true);
 #ifndef NDEBUG
+#if !defined(BOLT_XSIMD_SCALAR_FALLBACK)
   ASSERT_TRUE(coverage[0][0]);
   ASSERT_TRUE(coverage[0][1]);
   ASSERT_TRUE(coverage[1][0]);
   ASSERT_TRUE(coverage[1][1]);
+#endif
 #endif
 }
 

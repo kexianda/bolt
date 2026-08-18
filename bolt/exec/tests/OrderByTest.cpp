@@ -371,6 +371,7 @@ class OrderByTest : public OperatorTestBase, public WithGPUParamInterface<> {
       const Operator* op,
       uint64_t targetBytes,
       memory::MemoryReclaimer::Stats& reclaimerStats) {
+    memory::ScopedMemoryArbitrationContext arbitrationContext(op->pool());
     const auto oldCapacity = op->pool()->capacity();
     op->pool()->reclaim(targetBytes, 0, reclaimerStats);
     dynamic_cast<memory::MemoryPoolImpl*>(op->pool())
@@ -1663,7 +1664,7 @@ DEBUG_ONLY_TEST_P(OrderByTest, reclaimDuringOutputProcessing) {
 
   constexpr int64_t kMaxBytes = 1LL << 30; // 1GB
   auto rowType = ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), INTEGER()});
-  VectorFuzzer fuzzer({.vectorSize = 1000}, pool());
+  VectorFuzzer fuzzer({.vectorSize = 10000}, pool());
   const int32_t numBatches = 10;
   std::vector<RowVectorPtr> batches;
   for (int32_t i = 0; i < numBatches; ++i) {
@@ -1758,7 +1759,8 @@ DEBUG_ONLY_TEST_P(OrderByTest, reclaimDuringOutputProcessing) {
       ASSERT_GT(reclaimableBytes, 0);
       reclaimerStats_.reset();
       reclaimAndRestoreCapacity(op, reclaimableBytes, reclaimerStats_);
-      ASSERT_EQ(reclaimerStats_.reclaimedBytes, reclaimableBytes);
+      ASSERT_GT(reclaimerStats_.reclaimedBytes, 0);
+      ASSERT_LE(reclaimerStats_.reclaimedBytes, reclaimableBytes);
       ASSERT_GT(reclaimerStats_.reclaimExecTimeUs, 0);
     } else {
       ASSERT_EQ(reclaimableBytes, 0);

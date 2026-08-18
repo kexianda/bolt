@@ -729,7 +729,7 @@ TEST_P(TestColumnReader, testByteWithNulls) {
       EXPECT_TRUE(byteBatch->isNullAt(i)) << "Wrong value at " << i;
     } else {
       EXPECT_FALSE(byteBatch->isNullAt(i)) << "Wrong value at " << i;
-      EXPECT_EQ(static_cast<char>(next++), byteBatch->valueAt(i))
+      EXPECT_EQ(static_cast<int8_t>(next++), byteBatch->valueAt(i))
           << "Wrong value at " << i;
     }
   }
@@ -831,7 +831,7 @@ TEST_P(TestColumnReader, testByteSkipsWithNulls) {
 
   ASSERT_EQ(5, byteBatch->size());
   ASSERT_EQ(4, getNullCount(byteBatch));
-  EXPECT_EQ(static_cast<char>(-1), byteBatch->valueAt(0));
+  EXPECT_EQ(static_cast<int8_t>(-1), byteBatch->valueAt(0));
   EXPECT_TRUE(byteBatch->isNullAt(1));
   EXPECT_TRUE(byteBatch->isNullAt(2));
   EXPECT_TRUE(byteBatch->isNullAt(3));

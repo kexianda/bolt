@@ -38,6 +38,7 @@
 #include <folly/container/F14Set.h>
 #include <exception>
 #include <sstream>
+#include <unordered_map>
 
 #include "bolt/common/base/Exceptions.h"
 #include "bolt/common/testutil/TestValue.h"
@@ -50,8 +51,9 @@ namespace bytedance::bolt::tz {
 using TTimeZoneDatabase = std::vector<std::unique_ptr<TimeZone>>;
 using TTimeZoneIndex = folly::F14FastMap<std::string, const TimeZone*>;
 
-// Defined in TimeZoneDatabase.cpp
+// Defined in TimeZoneDatabase.cpp and TimeZoneLinks.cpp.
 extern const std::vector<std::pair<int16_t, std::string>>& getTimeZoneEntries();
+extern const std::unordered_map<std::string, std::string>& getTimeZoneLinks();
 
 namespace {
 // Returns the offset in minutes for a specific time zone offset in the
@@ -64,6 +66,36 @@ const ::date::time_zone* locateZoneImpl(std::string_view tz_name) {
   BOLT_TEST_ADJUST("bytedance::bolt::tz::locateZoneImpl", &tz_name);
   const ::date::time_zone* zone = ::date::locate_zone(tz_name);
   return zone;
+}
+
+const ::date::time_zone* locateZoneFromDatabase(std::string_view name) {
+  const auto& links = getTimeZoneLinks();
+  const auto link = links.find(std::string{name});
+  std::string_view canonicalName =
+      link == links.end() ? name : std::string_view{link->second};
+  try {
+    return locateZoneImpl(canonicalName);
+  } catch (const std::exception&) {
+    // Minimal tzdata installations can omit these POSIX-style compatibility
+    // zones. Fall back to representative IANA zones with the same modern
+    // daylight-saving rules.
+    static const std::unordered_map<std::string_view, std::string_view>
+        kPosixZoneFallbacks = {
+            {"CET", "Europe/Paris"},
+            {"CST6CDT", "America/Chicago"},
+            {"EET", "Europe/Athens"},
+            {"EST5EDT", "America/New_York"},
+            {"MET", "Europe/Paris"},
+            {"MST7MDT", "America/Denver"},
+            {"PST8PDT", "America/Los_Angeles"},
+            {"WET", "Europe/Lisbon"},
+        };
+    const auto fallback = kPosixZoneFallbacks.find(name);
+    if (fallback == kPosixZoneFallbacks.end()) {
+      throw;
+    }
+    return locateZoneImpl(fallback->second);
+  }
 }
 
 // Flattens the input vector of pairs into a vector, assuming that the
@@ -91,7 +123,10 @@ TTimeZoneDatabase buildTimeZoneDatabase(
     else {
       const ::date::time_zone* zone;
       try {
-        zone = locateZoneImpl(entry.second);
+        // Some installations omit the tzdata backward-compatibility links.
+        // Resolve Bolt's known aliases to their canonical zone while
+        // preserving the original name and ID in the TimeZone object.
+        zone = locateZoneFromDatabase(entry.second);
       } catch (std::exception& err) {
         // When this exception is thrown, it typically means the time zone name
         // we are trying to locate cannot be found from OS's time zone database.
@@ -102,8 +137,6 @@ TTimeZoneDatabase buildTimeZoneDatabase(
         // will be thrown and caller is expected to handle that error in code.
         LOG(WARNING) << "Invalid time zone [" << entry.second
                      << "]: " << err.what();
-        throw std::runtime_error(fmt::format(
-            "Invalid time zone [{}]: {}", entry.second, err.what()));
         continue;
       }
       timeZonePtr = std::make_unique<TimeZone>(entry.second, entry.first, zone);

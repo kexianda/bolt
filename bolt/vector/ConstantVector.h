@@ -45,6 +45,16 @@ struct DummyReleaser {
 
   void release() const {}
 };
+
+template <bool Enabled, typename T>
+struct SimdBatchOrChar {
+  using type = char;
+};
+
+template <typename T>
+struct SimdBatchOrChar<true, T> {
+  using type = xsimd::batch<T>;
+};
 } // namespace
 
 template <typename T>
@@ -56,7 +66,7 @@ class ConstantVector final : public SimpleVector<T> {
   static constexpr bool can_simd =
       (std::is_same_v<T, int64_t> || std::is_same_v<T, int32_t> ||
        std::is_same_v<T, int16_t> || std::is_same_v<T, int8_t> ||
-       std::is_same_v<T, bool> || std::is_same_v<T, size_t>);
+       std::is_same_v<T, size_t>);
 
   ConstantVector(
       bolt::memory::MemoryPool* pool,
@@ -482,7 +492,7 @@ class ConstantVector final : public SimpleVector<T> {
   bool initialized_{false};
 
   // This must be at end to avoid memory corruption.
-  std::conditional_t<can_simd, xsimd::batch<T>, char> valueBuffer_;
+  typename SimdBatchOrChar<can_simd, T>::type valueBuffer_;
 };
 
 template <>

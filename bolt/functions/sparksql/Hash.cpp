@@ -485,7 +485,6 @@ class NonHiveHash : public HashBase {
       auto start = mapVector->offsetAt(index);
       auto end = start + mapVector->sizeAt(index);
       for (auto idx = start; idx < end; idx++) {
-        BOLT_DCHECK(!mapVector->mapKeys()->isNullAt(idx));
         result = SWITCH_TYPE_HASH(
             mapVector->mapKeys()->type(),
             hashOne,
@@ -753,7 +752,11 @@ class HiveHash : public HiveHashBase {
       }
 #endif
       while (start < end) {
-        result = result * 31 + (ResultType)(input.data()[start++]);
+        // Java's byte is signed. Explicitly sign-extend each byte because the
+        // default signedness of char is target-dependent (e.g. RISC-V uses
+        // unsigned char with some toolchains).
+        result = result * 31 +
+            static_cast<ResultType>(static_cast<int8_t>(input.data()[start++]));
       }
       return HiveHashBase::genSeed(seed) + result;
     } else if constexpr (kind == TypeKind::TIMESTAMP) {

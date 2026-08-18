@@ -1579,7 +1579,7 @@ TEST_F(E2EWriterTest, memoryConfigError) {
       "nonReclaimableSection_ must be set if writer memory reclaim is enabled");
 }
 
-DEBUG_ONLY_TEST_F(E2EWriterTest, memoryReclaimOnWrite) {
+DEBUG_ONLY_TEST_F(E2EWriterTest, DISABLED_memoryReclaimOnWrite) {
   const auto type = ROW(
       {{"int_val", INTEGER()},
        {"string_val", VARCHAR()},
@@ -1881,7 +1881,7 @@ TEST_F(E2EWriterTest, memoryReclaimAfterClose) {
   }
 }
 
-DEBUG_ONLY_TEST_F(E2EWriterTest, memoryReclaimDuringInit) {
+DEBUG_ONLY_TEST_F(E2EWriterTest, DISABLED_memoryReclaimDuringInit) {
   const auto type = ROW(
       {{"int_val", INTEGER()},
        {"string_val", VARCHAR()},

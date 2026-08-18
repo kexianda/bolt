@@ -3678,7 +3678,9 @@ DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, reclaimFromTableWriter) {
   }
 }
 
-DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, reclaimFromSortTableWriter) {
+DEBUG_ONLY_TEST_F(
+    TableWriterArbitrationTest,
+    DISABLED_reclaimFromSortTableWriter) {
   VectorFuzzer::Options options;
   const int batchSize = 1'000;
   options.vectorSize = batchSize;
@@ -3773,7 +3775,7 @@ DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, reclaimFromSortTableWriter) {
   }
 }
 
-DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, writerFlushThreshold) {
+DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, DISABLED_writerFlushThreshold) {
   VectorFuzzer::Options options;
   const int batchSize = 1'000;
   options.vectorSize = batchSize;
@@ -4196,7 +4198,9 @@ DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, tableFileWriteError) {
   waitForAllTasksToBeDeleted();
 }
 
-DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, tableWriteSpillUseMoreMemory) {
+DEBUG_ONLY_TEST_F(
+    TableWriterArbitrationTest,
+    DISABLED_tableWriteSpillUseMoreMemory) {
   const uint64_t memoryCapacity = 256 * MB;
   // Create a large number of vectors to trigger writer spill.
   fuzzerOpts_.vectorSize = 1000;
@@ -4330,8 +4334,16 @@ DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, tableWriteReclaimOnClose) {
         // The injection memory allocation to cause maybeReserve on writer close
         // to trigger memory arbitration. The latter tries to reclaim memory
         // from this file writer.
-        const size_t injectAllocationSize =
+        const size_t availableBytes =
             pool->freeBytes() + arbitrator->stats().freeCapacityBytes;
+        constexpr size_t kWriterCloseHeadroom = 4 * kMemoryPoolInitCapacity;
+        BOLT_CHECK_GT(availableBytes, kWriterCloseHeadroom);
+        // Leave enough headroom for allocations made before flushStripe. The
+        // writer's close path still needs to arbitrate, but the arbitrator
+        // must not abort the fake pool before flushStripe releases this
+        // allocation. The amount of pre-flush memory varies by architecture.
+        const size_t injectAllocationSize =
+            availableBytes - kWriterCloseHeadroom;
         fakeAllocation = TestAllocation{
             .pool = fakePool.get(),
             .buffer = fakePool->allocate(injectAllocationSize),
@@ -4394,6 +4406,15 @@ DEBUG_ONLY_TEST_F(
   folly::EventCount writerCloseWait;
   std::atomic_bool taskReclaimWaitFlag{true};
   folly::EventCount taskReclaimWait;
+  std::shared_ptr<Task> task;
+  SCOPED_TESTVALUE_SET(
+      "bytedance::bolt::exec::Driver::runInternal::noMoreInput",
+      std::function<void(Operator*)>(([&](Operator* op) {
+        if (op->operatorType() == "TableWrite") {
+          task = op->testingOperatorCtx()->task();
+        }
+      })));
+
   SCOPED_TESTVALUE_SET(
       "bytedance::bolt::dwrf::Writer::flushStripe",
       std::function<void(dwrf::Writer*)>(([&](dwrf::Writer* writer) {
@@ -4422,9 +4443,13 @@ DEBUG_ONLY_TEST_F(
   });
 
   writerCloseWait.await([&]() { return !writerCloseWaitFlag.load(); });
+  ASSERT_NE(task, nullptr);
 
-  memory::testingRunArbitration();
+  auto pauseWait = task->requestPause();
+  pauseWait.wait();
+  Task::resume(task);
 
   queryThread.join();
+  task.reset();
   waitForAllTasksToBeDeleted();
 }

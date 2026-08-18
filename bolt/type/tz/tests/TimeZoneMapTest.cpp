@@ -37,6 +37,8 @@ namespace bytedance::bolt::tz {
 namespace {
 
 TEST(TimeZoneMapTest, getTimeZoneName) {
+  EXPECT_EQ("Africa/Asmera", getTimeZoneName(1686));
+  EXPECT_EQ("Asia/Choibalsan", getTimeZoneName(1926));
   EXPECT_EQ("America/Los_Angeles", getTimeZoneName(1825));
   EXPECT_EQ("Europe/Moscow", getTimeZoneName(2079));
   EXPECT_EQ("Pacific/Kanton", getTimeZoneName(2231));
@@ -46,6 +48,8 @@ TEST(TimeZoneMapTest, getTimeZoneName) {
 }
 
 TEST(TimeZoneMapTest, getTimeZoneID) {
+  EXPECT_EQ(1686, getTimeZoneID("Africa/Asmera"));
+  EXPECT_EQ(1926, getTimeZoneID("Asia/Choibalsan"));
   EXPECT_EQ(1825, getTimeZoneID("America/Los_Angeles"));
   EXPECT_EQ(2079, getTimeZoneID("Europe/Moscow"));
   EXPECT_EQ(2231, getTimeZoneID("Pacific/Kanton"));

@@ -249,14 +249,14 @@ FOLLY_ALWAYS_INLINE signed char IntDecoder<isSigned>::readByte() {
     bufferStart = static_cast<const char*>(bufferPointer);
     bufferEnd = bufferStart + bufferLength;
   }
-  return *(bufferStart++);
+  return static_cast<int8_t>(*(bufferStart++));
 }
 
 template <bool isSigned>
 FOLLY_ALWAYS_INLINE uint64_t IntDecoder<isSigned>::readVuLong() {
   BOLT_DCHECK_EQ(pendingSkip, 0);
   if (LIKELY(bufferEnd - bufferStart >= folly::kMaxVarintLength64)) {
-    const char* p = bufferStart;
+    const auto* p = reinterpret_cast<const int8_t*>(bufferStart);
     uint64_t val;
     do {
       int64_t b;
@@ -320,7 +320,7 @@ FOLLY_ALWAYS_INLINE uint64_t IntDecoder<isSigned>::readVuLong() {
             val));
       }
     } while (false);
-    bufferStart = p;
+    bufferStart = reinterpret_cast<const char*>(p);
     return val;
   } else {
     int64_t result = 0;

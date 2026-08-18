@@ -45,7 +45,7 @@ add_executable(bolt_windows_test
 
 add_test(
   NAME bolt_windows_test
-  COMMAND bolt_windows_test
+  COMMAND ${CMAKE_COMMAND} -E chdir . $<TARGET_FILE:bolt_windows_test>
   WORKING_DIRECTORY .
 )
 

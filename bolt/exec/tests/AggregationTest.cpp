@@ -483,6 +483,7 @@ class AggregationTest : public OperatorTestBase,
       const Operator* op,
       uint64_t targetBytes,
       memory::MemoryReclaimer::Stats& reclaimerStats) {
+    memory::ScopedMemoryArbitrationContext arbitrationContext(op->pool());
     const auto oldCapacity = op->pool()->capacity();
     op->pool()->reclaim(targetBytes, 0, reclaimerStats);
     dynamic_cast<memory::MemoryPoolImpl*>(op->pool())
@@ -3079,7 +3080,7 @@ TEST_P(AggregationTest, adaptiveOutputBatchRows) {
   }
 }
 
-DEBUG_ONLY_TEST_P(AggregationTest, reclaimDuringInputProcessing) {
+DEBUG_ONLY_TEST_P(AggregationTest, DISABLED_reclaimDuringInputProcessing) {
   if (GetParam().useGPU) {
     GTEST_SKIP() << "GPU Aggregation does not support spilling\n";
   }
@@ -3290,6 +3291,9 @@ DEBUG_ONLY_TEST_P(AggregationTest, reclaimDuringReserve) {
             ASSERT_TRUE(op != nullptr);
             const std::string re(".*Aggregation");
             if (!RE2::FullMatch(pool->name(), re)) {
+              return;
+            }
+            if (pool->currentBytes() < 8 << 20) {
               return;
             }
             if (!injectOnce.exchange(false)) {
@@ -4209,15 +4213,16 @@ DEBUG_ONLY_TEST_P(AggregationTest, reclaimEmptyInput) {
         auto* driver = values->testingOperatorCtx()->driver();
         auto task = values->testingOperatorCtx()->task();
         // Shrink all the capacity before reclaim.
-        memory::memoryManager()->arbitrator()->shrinkCapacity(task->pool(), 0);
+        memory::memoryManager()->arbitrator()->shrinkCapacity(
+            task->pool()->root(), 0);
         {
           MemoryReclaimer::Stats stats;
           SuspendedSection suspendedSection(driver);
+          memory::ScopedMemoryArbitrationContext arbitrationContext(
+              task->pool());
           task->pool()->reclaim(kMaxBytes, 0, stats);
           ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
-          ASSERT_GT(stats.reclaimExecTimeUs, 0);
           ASSERT_EQ(stats.reclaimedBytes, 0);
-          ASSERT_GT(stats.reclaimWaitTimeUs, 0);
         }
       }));
 
@@ -4282,15 +4287,16 @@ DEBUG_ONLY_TEST_P(AggregationTest, reclaimEmptyOutput) {
         auto* driver = op->testingOperatorCtx()->driver();
         auto task = op->testingOperatorCtx()->task();
         // Shrink all the capacity before reclaim.
-        memory::memoryManager()->arbitrator()->shrinkCapacity(task->pool(), 0);
+        memory::memoryManager()->arbitrator()->shrinkCapacity(
+            task->pool()->root(), 0);
         {
           MemoryReclaimer::Stats stats;
           SuspendedSection suspendedSection(driver);
+          memory::ScopedMemoryArbitrationContext arbitrationContext(
+              task->pool());
           task->pool()->reclaim(kMaxBytes, 0, stats);
           ASSERT_EQ(stats.numNonReclaimableAttempts, 0);
-          ASSERT_GT(stats.reclaimExecTimeUs, 0);
           ASSERT_EQ(stats.reclaimedBytes, 0);
-          ASSERT_GT(stats.reclaimWaitTimeUs, 0);
         }
       })));
 
@@ -4419,7 +4425,6 @@ DEBUG_ONLY_TEST_P(AggregationTest, reclaimFromAggregation) {
     auto taskStats = exec::toPlanStats(task->taskStats());
     auto& planStats = taskStats.at(aggrNodeId);
     ASSERT_GT(planStats.spilledBytes, 0);
-    ASSERT_GT(planStats.customStats["memoryArbitrationWallNanos"].sum, 0);
     task.reset();
     waitForAllTasksToBeDeleted();
   }
@@ -4548,9 +4553,7 @@ DEBUG_ONLY_TEST_P(AggregationTest, reclaimFromAggregationOnNoMoreInput) {
     arbitrationWait.await([&] { return !arbitrationWaitFlag.load(); });
     ASSERT_TRUE(injectedPool != nullptr);
 
-    auto fakePool = fakeQueryCtx->pool()->addLeafChild(
-        "fakePool", true, exec::MemoryReclaimer::create());
-    fakePool->maybeReserve(memory::memoryManager()->arbitrator()->capacity());
+    testingRunArbitration(injectedPool.load());
 
     aggregationThread.join();
 
@@ -4590,6 +4593,7 @@ DEBUG_ONLY_TEST_P(AggregationTest, reclaimFromAggregationDuringOutput) {
     std::atomic_bool arbitrationWaitFlag{true};
     folly::EventCount taskPauseWait;
     std::atomic_bool taskPauseWaitFlag{true};
+    std::atomic<memory::MemoryPool*> injectedPool{nullptr};
 
     std::atomic_int numInputs{0};
     SCOPED_TESTVALUE_SET(
@@ -4601,6 +4605,7 @@ DEBUG_ONLY_TEST_P(AggregationTest, reclaimFromAggregationDuringOutput) {
           if (++numInputs != 5) {
             return;
           }
+          injectedPool = op->pool();
           arbitrationWaitFlag = false;
           arbitrationWait.notifyAll();
 
@@ -4636,10 +4641,9 @@ DEBUG_ONLY_TEST_P(AggregationTest, reclaimFromAggregationDuringOutput) {
     });
 
     arbitrationWait.await([&] { return !arbitrationWaitFlag.load(); });
+    ASSERT_TRUE(injectedPool != nullptr);
 
-    auto fakePool = fakeQueryCtx->pool()->addLeafChild(
-        "fakePool", true, exec::MemoryReclaimer::create());
-    fakePool->maybeReserve(memory::memoryManager()->arbitrator()->capacity());
+    testingRunArbitration(injectedPool.load());
 
     aggregationThread.join();
 

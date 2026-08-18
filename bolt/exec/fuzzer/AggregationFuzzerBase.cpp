@@ -263,6 +263,7 @@ std::vector<RowVectorPtr> AggregationFuzzerBase::generateInputDataWithRowNumber(
     const CallableSignature& signature) {
   names.push_back("row_number");
   types.push_back(BIGINT());
+  const auto inputType = ROW(std::move(names), std::move(types));
 
   auto generator = findInputGenerator(signature);
 
@@ -278,12 +279,13 @@ std::vector<RowVectorPtr> AggregationFuzzerBase::generateInputDataWithRowNumber(
           generator->generate(signature.args, vectorFuzzer_, rng_, pool_.get());
     }
 
-    for (auto i = children.size(); i < types.size() - 1; ++i) {
-      children.push_back(vectorFuzzer_.fuzz(types[i], size));
+    for (auto i = children.size(); i < inputType->size() - 1; ++i) {
+      children.push_back(vectorFuzzer_.fuzz(inputType->childAt(i), size));
     }
     children.push_back(vectorMaker.flatVector<int64_t>(
         size, [&](auto /*row*/) { return rowNumber++; }));
-    input.push_back(vectorMaker.rowVector(names, children));
+    input.push_back(std::make_shared<RowVector>(
+        pool_.get(), inputType, nullptr, size, std::move(children)));
   }
 
   if (generator != nullptr) {

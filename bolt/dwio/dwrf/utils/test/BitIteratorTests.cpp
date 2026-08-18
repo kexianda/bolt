@@ -39,7 +39,7 @@ namespace bytedance::bolt::dwrf::utils {
 
 TEST(BulkBitIterator, Basic) {
   std::vector<char> charBuffer1{
-      std::numeric_limits<char>::max(), 102, 40, -120};
+      std::numeric_limits<char>::max(), 102, 40, static_cast<char>(-120)};
   std::vector<char> charBuffer2{125, 85, 42, std::numeric_limits<char>::min()};
 
   BulkBitIterator<char> bulkIter{};

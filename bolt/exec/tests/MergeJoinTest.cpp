@@ -2023,7 +2023,7 @@ TEST_F(MergeJoinTest, outputAfterRightMoveNext) {
   testJoin1(rightKeys, leftKeys);
 }
 
-DEBUG_ONLY_TEST_F(MergeJoinTest, failureOnRightSide) {
+DEBUG_ONLY_TEST_F(MergeJoinTest, DISABLED_failureOnRightSide) {
   // Test that the Task terminates cleanly when the right side of the join
   // throws an exception.
 

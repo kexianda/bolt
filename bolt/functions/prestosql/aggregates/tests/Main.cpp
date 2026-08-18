@@ -28,10 +28,29 @@
  * --------------------------------------------------------------------------
  */
 
+#include <algorithm>
+
 #include <folly/init/Init.h>
 #include <gtest/gtest.h>
+#include <sys/resource.h>
+
+namespace {
+
+void raiseFileDescriptorLimit() {
+  constexpr rlim_t kRequired = 10000;
+  struct rlimit limit;
+  if (getrlimit(RLIMIT_NOFILE, &limit) != 0 || limit.rlim_cur >= kRequired) {
+    return;
+  }
+
+  limit.rlim_cur = std::min(limit.rlim_max, kRequired);
+  (void)setrlimit(RLIMIT_NOFILE, &limit);
+}
+
+} // namespace
 
 int main(int argc, char** argv) {
+  raiseFileDescriptorLimit();
   testing::InitGoogleTest(&argc, argv);
   // todo: use folly::Init init after upgrade folly lib
   folly::init(&argc, &argv, false);

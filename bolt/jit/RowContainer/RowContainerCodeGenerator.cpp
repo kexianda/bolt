@@ -59,8 +59,10 @@ void ensureBuiltinDeclarations(llvm::Module& module) {
   auto* floatTy = llvm::Type::getFloatTy(context);
   auto* doubleTy = llvm::Type::getDoubleTy(context);
   auto* i8PtrTy = llvm::PointerType::get(context, 0);
-  llvm::Intrinsic::getDeclaration(&module, llvm::Intrinsic::bswap, {i32Ty});
-  llvm::Intrinsic::getDeclaration(&module, llvm::Intrinsic::bswap, {i64Ty});
+  llvm::Intrinsic::getOrInsertDeclaration(
+      &module, llvm::Intrinsic::bswap, {i32Ty});
+  llvm::Intrinsic::getOrInsertDeclaration(
+      &module, llvm::Intrinsic::bswap, {i64Ty});
 
   declareFunction(module, "memcmp", i32Ty, {i8PtrTy, i8PtrTy, i64Ty});
 

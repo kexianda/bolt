@@ -18,6 +18,7 @@
 
 #include "bolt/jit/ThrustJITv2.h"
 
+#include "llvm/Config/llvm-config.h"
 #include "llvm/ExecutionEngine/Orc/ExecutionUtils.h"
 #include "llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h"
 #include "llvm/Support/DynamicLibrary.h"
@@ -95,8 +96,13 @@ llvm::Expected<std::unique_ptr<ThrustJITv2>> ThrustJITv2::Create() {
           .setNumCompileThreads(8)
           .setObjectLinkingLayerCreator(
               [tracker = &result->codeSizeTracker_](
-                  llvm::orc::ExecutionSession& executionSession,
+                  llvm::orc::ExecutionSession& executionSession
+#if LLVM_VERSION_MAJOR < 22
+                  ,
                   const llvm::Triple&)
+#else
+                  )
+#endif
                   -> llvm::Expected<std::unique_ptr<llvm::orc::ObjectLayer>> {
                 auto layer = std::make_unique<llvm::orc::ObjectLinkingLayer>(
                     executionSession);

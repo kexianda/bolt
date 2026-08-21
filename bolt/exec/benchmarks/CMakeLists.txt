@@ -70,6 +70,35 @@ target_link_libraries(
     ${FOLLY_BENCHMARK}
 )
 
+add_executable(bolt_hash_join_string_allocation_benchmark HashJoinStringAllocationBenchmark.cpp)
+
+target_link_libraries(
+  bolt_hash_join_string_allocation_benchmark
+  PRIVATE
+    bolt_testutils
+    ${FOLLY_BENCHMARK}
+    GTest::gtest_main
+)
+
+add_executable(
+  bolt_hash_aggregation_string_allocation_benchmark
+  HashAggregationStringAllocationBenchmark.cpp
+)
+
+target_link_libraries(
+  bolt_hash_aggregation_string_allocation_benchmark
+  PRIVATE
+    bolt_testutils
+    ${FOLLY_BENCHMARK}
+    GTest::gtest_main
+)
+
+target_compile_definitions(
+  bolt_hash_aggregation_string_allocation_benchmark
+  PRIVATE
+    BOLT_AGG_BENCHMARK_HAS_ALIGNED_BUF_ALLOC_STRATEGY
+)
+
 add_executable(
   bolt_hash_string_monotonic_allocator_benchmark
   HashStringMonotonicAllocatorBenchmark.cpp

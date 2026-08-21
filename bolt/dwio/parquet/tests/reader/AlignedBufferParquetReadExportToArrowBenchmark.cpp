@@ -19,6 +19,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <algorithm>
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
@@ -42,7 +43,7 @@
 namespace bytedance::bolt::parquet {
 namespace {
 
-constexpr vector_size_t kBatchSize = 1024;
+constexpr uint64_t kMaxBatchBytes = 2UL << 20;
 std::string parquetFile;
 
 class ArrowArrayGuard {
@@ -116,6 +117,10 @@ void runBenchmark(bool enableAlignedBufAllocStrategy, BenchmarkResult& result) {
   auto scanSpec = std::make_shared<common::ScanSpec>("");
   scanSpec->addAllChildFields(*rowType);
   rowReaderOptions.setScanSpec(scanSpec);
+  // Keep the estimated batch size strictly below 2 MiB unless a single row is
+  // already wider than the limit. ParquetRowReader refreshes its row-width
+  // estimate for each row group and applies this cap internally as well.
+  rowReaderOptions.setMaxBatchBytes(kMaxBatchBytes - 1);
   auto rowReader = reader->createRowReader(rowReaderOptions);
 
   ArrowOptions arrowOptions{
@@ -131,7 +136,14 @@ void runBenchmark(bool enableAlignedBufAllocStrategy, BenchmarkResult& result) {
   ASSERT_EQ(arrowSchema.schema.n_children, rowType->size());
 
   VectorPtr batch = BaseVector::create(rowType, 0, context.readerPool.get());
-  while (rowReader->next(kBatchSize, batch)) {
+  while (true) {
+    const auto estimatedRowWidth =
+        std::max<size_t>(1, rowReader->estimatedRowSize().value_or(1));
+    const auto batchRows =
+        std::max<uint64_t>(1, (kMaxBatchBytes - 1) / estimatedRowWidth);
+    if (!rowReader->next(batchRows, batch)) {
+      break;
+    }
     ASSERT_NE(batch, nullptr);
 
     auto arrowBatch = std::make_unique<ArrowArrayGuard>();
@@ -141,6 +153,7 @@ void runBenchmark(bool enableAlignedBufAllocStrategy, BenchmarkResult& result) {
     EXPECT_EQ(arrowBatch->array.length, batch->size());
     EXPECT_EQ(arrowBatch->array.n_children, rowType->size());
     result.exportedRows += batch->size();
+    // Keep every exported batch alive until peak memory is recorded.
     context.arrowBatches.push(std::move(arrowBatch));
   }
 
@@ -159,8 +172,9 @@ TEST(AlignedBufferParquetReadExportToArrowBenchmark, comparePoolPeakBytes) {
                     "BOLT_PARQUET_FILE=<path>";
   }
 
-  ASSERT_TRUE(std::filesystem::is_regular_file(parquetFile))
-      << "Parquet file does not exist: " << parquetFile;
+  if (!std::filesystem::is_regular_file(parquetFile)) {
+    GTEST_SKIP() << "Parquet file does not exist: " << parquetFile;
+  }
 
   BenchmarkResult strategyDisabled;
   runBenchmark(false, strategyDisabled);

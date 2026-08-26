@@ -211,14 +211,14 @@ requires(
 
   [[nodiscard]] T* allocate(std::size_t n) {
     const auto bytes = allocationBytes(n);
-    return static_cast<T*>(resourceChecked()->allocate(bytes, alignment()));
+    return static_cast<T*>(resource_->allocate(bytes, alignment()));
   }
 
   void deallocate(T* p, std::size_t n) {
     if (p == nullptr) [[unlikely]] {
       return;
     }
-    resourceChecked()->deallocate(p, allocationBytes(n), alignment());
+    resource_->deallocate(p, allocationBytes(n), alignment());
   }
 
   template <typename U>
@@ -249,11 +249,6 @@ requires(
     const auto allocationAlignment = alignment();
     const auto roundedBytes = checkedPlus(bytes, allocationAlignment - 1);
     return roundedBytes / allocationAlignment * allocationAlignment;
-  }
-
-  MonotonicMemoryResource* resourceChecked() const {
-    BOLT_CHECK_NOT_NULL(resource_);
-    return resource_;
   }
 
   static constexpr std::size_t alignment() {
@@ -319,7 +314,7 @@ requires(
 
   [[nodiscard]] T* allocate(std::size_t n) {
     const std::size_t bytes = allocationBytes(n);
-    return static_cast<T*>(resourceChecked()->allocate(bytes, alignment()));
+    return static_cast<T*>(resource_->allocate(bytes, alignment()));
   }
 
   void deallocate(T* p, std::size_t n) {
@@ -328,7 +323,7 @@ requires(
     }
 
     const std::size_t bytes = allocationBytes(n);
-    resourceChecked()->deallocate(p, bytes, alignment());
+    resource_->deallocate(p, bytes, alignment());
   }
 
   template <typename U>
@@ -355,11 +350,6 @@ requires(
     const auto bytes = checkedMultiply(n, sizeof(T));
     const auto roundedBytes = checkedPlus(bytes, Alignment - 1);
     return roundedBytes / Alignment * Alignment;
-  }
-
-  SlabMemoryResource* resourceChecked() const {
-    BOLT_CHECK_NOT_NULL(resource_);
-    return resource_;
   }
 
   static constexpr std::size_t alignment() {

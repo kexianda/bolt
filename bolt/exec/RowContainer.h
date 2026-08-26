@@ -256,6 +256,25 @@ class RowContainer {
             useListRowIndex,
             pool) {}
 
+  RowContainer(
+      const std::vector<TypePtr>& keyTypes,
+      const std::vector<TypePtr>& dependentTypes,
+      bool useListRowIndex,
+      memory::MemoryPool* FOLLY_NONNULL pool,
+      RowContainerParam rowContainerParam)
+      : RowContainer(
+            keyTypes,
+            true,
+            std::vector<Accumulator>{},
+            dependentTypes,
+            false,
+            false,
+            false,
+            false,
+            useListRowIndex,
+            pool,
+            std::move(rowContainerParam)) {}
+
   ~RowContainer();
 
   static int32_t combineAlignments(int32_t a, int32_t b);

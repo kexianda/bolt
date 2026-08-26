@@ -83,12 +83,6 @@ class SlabMemoryResource {
   std::size_t reservedBytes() const noexcept;
 
  private:
-  static constexpr std::size_t kReservationQuantum = 1 << 20;
-
-  // For <=32K allocations, jemalloc performs well. For larger allocations, we
-  // delegate to the memory pool.
-  static constexpr std::size_t kLargeAllocationThreshold = 32 << 10;
-
   void releaseReservation() noexcept;
 
   MemoryPool* poolChecked() const;
@@ -101,13 +95,7 @@ class SlabMemoryResource {
 static_assert(MemoryResource<SlabMemoryResource>);
 
 class MonotonicMemoryResource {
-  struct Chunk {
-    void* data{nullptr};
-    std::size_t size{0};
-    std::size_t alignment{0};
-    bool contiguous{false};
-    ContiguousAllocation allocation;
-  };
+  struct Chunk;
 
  public:
   explicit MonotonicMemoryResource(
@@ -139,7 +127,6 @@ class MonotonicMemoryResource {
   void release() noexcept;
 
   static constexpr std::size_t kLargeRequestThreshold = 64 << 10;
-  static constexpr std::size_t kContiguousAllocationThreshold = 256 << 10;
 
   MemoryPool* pool_{nullptr};
   std::size_t usedBytes_{0};
@@ -211,7 +198,7 @@ requires(
 
   [[nodiscard]] T* allocate(std::size_t n) {
     const auto bytes = allocationBytes(n);
-    return static_cast<T*>(resource_->allocate(bytes, alignment()));
+    return static_cast<T*>(resource_->allocate(bytes));
   }
 
   void deallocate(T* p, std::size_t n) {
@@ -245,7 +232,7 @@ requires(
   }
 
   std::size_t allocationBytes(std::size_t n) const {
-    const auto bytes = checkedMultiply(n, sizeof(T));
+    const auto bytes = n * sizeof(T);
     const auto allocationAlignment = alignment();
     const auto roundedBytes = checkedPlus(bytes, allocationAlignment - 1);
     return roundedBytes / allocationAlignment * allocationAlignment;

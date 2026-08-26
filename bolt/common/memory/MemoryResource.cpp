@@ -35,6 +35,24 @@
 #include <new>
 
 namespace bytedance::bolt::memory {
+namespace {
+
+constexpr std::size_t kReservationQuantum = 1 << 20;
+
+// For <=32K allocations, jemalloc performs well. For larger allocations, we
+// delegate to the memory pool.
+constexpr std::size_t kLargeAllocationThreshold = 32 << 10;
+constexpr std::size_t kContiguousAllocationThreshold = 256 << 10;
+
+} // namespace
+
+struct MonotonicMemoryResource::Chunk {
+  void* data{nullptr};
+  std::size_t size{0};
+  std::size_t alignment{0};
+  bool contiguous{false};
+  ContiguousAllocation allocation;
+};
 
 SlabAllocatorState::SlabAllocatorState(MemoryPool* pool) : pool_{pool} {}
 
@@ -171,59 +189,19 @@ MonotonicMemoryResource::~MonotonicMemoryResource() {
 
 void* MonotonicMemoryResource::allocate(
     std::size_t bytes,
-    std::size_t alignment) {
-  BOLT_DCHECK(
-      alignment > 0 && (alignment & (alignment - 1)) == 0,
-      "Alignment must be a power of two: {}",
-      alignment);
-  BOLT_DCHECK_LE(alignment, MemoryAllocator::kMaxAlignment);
+    std::size_t /*alignment*/) {
   const auto allocationBytes = bytes;
-  if (alignment == 1) [[likely]] {
-    auto* p = static_cast<std::byte*>(curr_);
-    if (currChunk_ == nullptr ||
-        p + allocationBytes >=
-            static_cast<std::byte*>(currChunk_) + currChunkSize_) [[unlikely]] {
-      addChunk(allocationBytes, alignment);
-      p = static_cast<std::byte*>(curr_);
-    }
-    BOLT_DCHECK_NOT_NULL(currChunk_);
-    BOLT_DCHECK_LE(
-        reinterpret_cast<std::uintptr_t>(p + allocationBytes),
-        reinterpret_cast<std::uintptr_t>(
-            static_cast<std::byte*>(currChunk_) + currChunkSize_));
-    curr_ = p + allocationBytes;
-    usedBytes_ += allocationBytes;
-    return p;
-  }
-
-  auto aligned = [&]() {
-    const auto address = reinterpret_cast<std::uintptr_t>(curr_);
-    return reinterpret_cast<std::byte*>(
-        (address + alignment - 1) & ~(alignment - 1));
-  };
-  if (currChunk_ == nullptr) {
-    addChunk(allocationBytes, alignment);
-    auto* p = aligned();
-    auto* chunkEnd = static_cast<std::byte*>(currChunk_) + currChunkSize_;
-    BOLT_DCHECK_LE(
-        reinterpret_cast<std::uintptr_t>(p + allocationBytes),
-        reinterpret_cast<std::uintptr_t>(chunkEnd));
-    curr_ = p + allocationBytes;
-    usedBytes_ += allocationBytes;
-    return p;
-  }
-
-  auto* p = aligned();
-  auto* chunkEnd = static_cast<std::byte*>(currChunk_) + currChunkSize_;
-  if (p + allocationBytes >= chunkEnd) {
-    addChunk(allocationBytes, alignment);
-    p = aligned();
-    chunkEnd = static_cast<std::byte*>(currChunk_) + currChunkSize_;
+  auto* p = static_cast<std::byte*>(curr_);
+  if (currChunk_ == nullptr ||
+      p + allocationBytes >=
+          static_cast<std::byte*>(currChunk_) + currChunkSize_) [[unlikely]] {
+    addChunk(allocationBytes, 1);
+    p = static_cast<std::byte*>(curr_);
   }
   BOLT_DCHECK_LE(
       reinterpret_cast<std::uintptr_t>(p + allocationBytes),
-      reinterpret_cast<std::uintptr_t>(chunkEnd));
-
+      reinterpret_cast<std::uintptr_t>(
+          static_cast<std::byte*>(currChunk_) + currChunkSize_));
   BOLT_DCHECK_NOT_NULL(currChunk_);
   curr_ = p + allocationBytes;
   usedBytes_ += allocationBytes;

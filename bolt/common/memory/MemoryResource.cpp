@@ -177,7 +177,25 @@ void* MonotonicMemoryResource::allocate(
       "Alignment must be a power of two: {}",
       alignment);
   BOLT_DCHECK_LE(alignment, MemoryAllocator::kMaxAlignment);
-  const auto allocationBytes = std::max<std::size_t>(bytes, 1);
+  const auto allocationBytes = bytes;
+  if (alignment == 1) [[likely]] {
+    auto* p = static_cast<std::byte*>(curr_);
+    if (currChunk_ == nullptr ||
+        p + allocationBytes >=
+            static_cast<std::byte*>(currChunk_) + currChunkSize_) [[unlikely]] {
+      addChunk(allocationBytes, alignment);
+      p = static_cast<std::byte*>(curr_);
+    }
+    BOLT_DCHECK_NOT_NULL(currChunk_);
+    BOLT_DCHECK_LE(
+        reinterpret_cast<std::uintptr_t>(p + allocationBytes),
+        reinterpret_cast<std::uintptr_t>(
+            static_cast<std::byte*>(currChunk_) + currChunkSize_));
+    curr_ = p + allocationBytes;
+    usedBytes_ += allocationBytes;
+    return p;
+  }
+
   auto aligned = [&]() {
     const auto address = reinterpret_cast<std::uintptr_t>(curr_);
     return reinterpret_cast<std::byte*>(
@@ -187,7 +205,7 @@ void* MonotonicMemoryResource::allocate(
     addChunk(allocationBytes, alignment);
     auto* p = aligned();
     auto* chunkEnd = static_cast<std::byte*>(currChunk_) + currChunkSize_;
-    BOLT_CHECK_LE(
+    BOLT_DCHECK_LE(
         reinterpret_cast<std::uintptr_t>(p + allocationBytes),
         reinterpret_cast<std::uintptr_t>(chunkEnd));
     curr_ = p + allocationBytes;
@@ -202,7 +220,7 @@ void* MonotonicMemoryResource::allocate(
     p = aligned();
     chunkEnd = static_cast<std::byte*>(currChunk_) + currChunkSize_;
   }
-  BOLT_CHECK_LE(
+  BOLT_DCHECK_LE(
       reinterpret_cast<std::uintptr_t>(p + allocationBytes),
       reinterpret_cast<std::uintptr_t>(chunkEnd));
 

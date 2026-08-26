@@ -436,6 +436,16 @@ TEST_F(SlabAllocatorTest, MonotonicMemoryResourceAllocatesFromChunks) {
   EXPECT_GT(pool_->currentBytes(), 0);
 }
 
+TEST_F(SlabAllocatorTest, MonotonicMemoryResourceDefaultsToByteAlignment) {
+  MonotonicMemoryResource resource{pool_.get()};
+
+  auto* first = static_cast<std::byte*>(resource.allocate(3));
+  auto* second = static_cast<std::byte*>(resource.allocate(5));
+
+  EXPECT_EQ(second, first + 3);
+  EXPECT_EQ(resource.usedBytes(), 8);
+}
+
 TEST_F(
     SlabAllocatorTest,
     MonotonicMemoryResourceSelectsChunkSizeByRequestSize) {

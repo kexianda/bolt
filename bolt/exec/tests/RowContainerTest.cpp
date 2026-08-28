@@ -1743,6 +1743,41 @@ TEST_F(RowContainerTest, ownsAndResetsMonotonicMemoryResource) {
   EXPECT_EQ(first->monotonicMemoryResource()->usedBytes(), 0);
 }
 
+TEST_F(RowContainerTest, extractStringsByAllocationMode) {
+  auto values = makeFlatVector<std::string>(
+      {"", "inline", std::string(HashStringAllocator::kMaxAlloc + 1, 'a')});
+  DecodedVector decoded(*values);
+
+  for (const bool useMonotonicStringAllocation : {false, true}) {
+    for (const bool nullableKeys : {false, true}) {
+      SCOPED_TRACE(fmt::format(
+          "useMonotonicStringAllocation: {}, nullableKeys: {}",
+          useMonotonicStringAllocation,
+          nullableKeys));
+
+      RowContainer::RowContainerParam params;
+      params.useMonotonicStringAllocation = useMonotonicStringAllocation;
+      RowContainer container(
+          {VARCHAR()},
+          nullableKeys,
+          {},
+          {},
+          false,
+          false,
+          false,
+          false,
+          false,
+          pool_.get(),
+          params);
+
+      auto rows = store(container, decoded, values->size());
+      auto result = BaseVector::create(VARCHAR(), values->size(), pool_.get());
+      container.extractColumn(rows.data(), rows.size(), 0, result);
+      assertEqualVectors(values, result);
+    }
+  }
+}
+
 TEST_F(RowContainerTest, extractSerializedRow) {
   VectorFuzzer fuzzer(
       {

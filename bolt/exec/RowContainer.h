@@ -1064,6 +1064,19 @@ class RowContainer {
     auto nullMask = column.nullMask();
     auto offset = column.offset();
     if (!nullMask) {
+      if constexpr (std::is_same_v<T, StringView>) {
+        if (useMonotonicStringAllocation_) {
+          extractValuesNoNulls<useRowNumbers, T, true>(
+              rows,
+              rowNumbers,
+              numRows,
+              offset,
+              resultOffset,
+              flatResult,
+              exactSize);
+          return;
+        }
+      }
       extractValuesNoNulls<useRowNumbers, T>(
           rows,
           rowNumbers,
@@ -1072,18 +1085,34 @@ class RowContainer {
           resultOffset,
           flatResult,
           exactSize);
-    } else {
-      extractValuesWithNulls<useRowNumbers, T>(
-          rows,
-          rowNumbers,
-          numRows,
-          offset,
-          column.nullByte(),
-          nullMask,
-          resultOffset,
-          flatResult,
-          exactSize);
+      return;
     }
+
+    if constexpr (std::is_same_v<T, StringView>) {
+      if (useMonotonicStringAllocation_) {
+        extractValuesWithNulls<useRowNumbers, T, true>(
+            rows,
+            rowNumbers,
+            numRows,
+            offset,
+            column.nullByte(),
+            nullMask,
+            resultOffset,
+            flatResult,
+            exactSize);
+        return;
+      }
+    }
+    extractValuesWithNulls<useRowNumbers, T>(
+        rows,
+        rowNumbers,
+        numRows,
+        offset,
+        column.nullByte(),
+        nullMask,
+        resultOffset,
+        flatResult,
+        exactSize);
   }
 
   char* FOLLY_NULLABLE& nextFree(char* FOLLY_NONNULL row) {
@@ -1147,7 +1176,7 @@ class RowContainer {
     }
   }
 
-  template <bool useRowNumbers, typename T>
+  template <bool useRowNumbers, typename T, bool isContinuousString = false>
   static void extractValuesWithNulls(
       const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
       folly::Range<const vector_size_t*> rowNumbers,
@@ -1179,11 +1208,19 @@ class RowContainer {
       } else {
         bits::setNull(nulls, resultIndex, false);
         if constexpr (std::is_same_v<T, StringView>) {
-          extractString(
-              valueAt<RowStringView>(row, offset),
-              result,
-              resultIndex,
-              exactSize);
+          if constexpr (isContinuousString) {
+            extractContinuousString(
+                valueAt<RowStringView>(row, offset),
+                result,
+                resultIndex,
+                exactSize);
+          } else {
+            extractString(
+                valueAt<RowStringView>(row, offset),
+                result,
+                resultIndex,
+                exactSize);
+          }
         } else {
           values[resultIndex] = valueAt<T>(row, offset);
         }
@@ -1191,7 +1228,7 @@ class RowContainer {
     }
   }
 
-  template <bool useRowNumbers, typename T>
+  template <bool useRowNumbers, typename T, bool isContinuousString = false>
   static void extractValuesNoNulls(
       const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
       folly::Range<const vector_size_t*> rowNumbers,
@@ -1218,11 +1255,19 @@ class RowContainer {
       } else {
         result->setNull(resultIndex, false);
         if constexpr (std::is_same_v<T, StringView>) {
-          extractString(
-              valueAt<RowStringView>(row, offset),
-              result,
-              resultIndex,
-              exactSize);
+          if constexpr (isContinuousString) {
+            extractContinuousString(
+                valueAt<RowStringView>(row, offset),
+                result,
+                resultIndex,
+                exactSize);
+          } else {
+            extractString(
+                valueAt<RowStringView>(row, offset),
+                result,
+                resultIndex,
+                exactSize);
+          }
         } else {
           values[resultIndex] = valueAt<T>(row, offset);
         }
@@ -1434,6 +1479,15 @@ class RowContainer {
       FlatVector<StringView>* FOLLY_NONNULL values,
       vector_size_t index,
       bool exactSize);
+
+  static inline void extractContinuousString(
+      RowStringView value,
+      FlatVector<StringView>* FOLLY_NONNULL values,
+      vector_size_t index,
+      bool exactSize) {
+    values->setStringViewValue(
+        index, std::bit_cast<StringView>(value), exactSize);
+  }
 
   int32_t compareStringAsc(
       RowStringView left,

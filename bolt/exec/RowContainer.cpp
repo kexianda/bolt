@@ -227,6 +227,10 @@ RowContainer::RowContainer(
       useMonotonicStringAllocation_(
           rowContainerParam.useMonotonicStringAllocation),
       rowPointers_(StlAllocator<char*>(stringAllocator_.get())) {
+  if (monotonicMemoryResource_) {
+    monotonicAllocator_.emplace(*monotonicMemoryResource_);
+  }
+
   // Compute the layout of the payload row.  The row has keys, null flags,
   // accumulators, dependent fields. All fields are fixed width. If variable
   // width data is referenced, this is done with StringView(for VARCHAR) and
@@ -412,9 +416,8 @@ void RowContainer::storeString(StringView value, char* row, int32_t offset) {
   }
 
   if (useMonotonicStringAllocation_) {
-    BOLT_DCHECK_NOT_NULL(monotonicMemoryResource_);
-    memory::MonotonicAllocator<char> allocator{monotonicMemoryResource_.get()};
-    auto* data = allocator.allocate(value.size());
+    BOLT_DCHECK(monotonicAllocator_.has_value());
+    auto* data = monotonicAllocator_->allocate(value.size());
     simd::memcpy(data, value.data(), value.size());
     valueAt<StringView>(row, offset) = StringView(data, value.size());
     addVariableRowSize(row, value.size());
@@ -1123,8 +1126,10 @@ void RowContainer::clear() {
   numFreeRows_ = 0;
   firstFreeRow_ = nullptr;
   if (useMonotonicStringAllocation_) {
+    monotonicAllocator_.reset();
     monotonicMemoryResource_ =
         std::make_unique<memory::MonotonicMemoryResource>(pool());
+    monotonicAllocator_.emplace(*monotonicMemoryResource_);
   }
 }
 

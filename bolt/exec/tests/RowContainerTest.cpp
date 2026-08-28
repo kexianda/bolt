@@ -1741,6 +1741,10 @@ TEST_F(RowContainerTest, ownsAndResetsMonotonicMemoryResource) {
 
   first->clear();
   EXPECT_EQ(first->monotonicMemoryResource()->usedBytes(), 0);
+
+  row = first->newRow();
+  first->store(decoded, 0, row, 0);
+  EXPECT_GT(first->monotonicMemoryResource()->usedBytes(), 0);
 }
 
 TEST_F(RowContainerTest, extractStringsByAllocationMode) {

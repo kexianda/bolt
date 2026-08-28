@@ -216,8 +216,9 @@ class RowContainer {
   using Eraser = std::function<void(folly::Range<char**> rows)>;
   struct RowContainerParam {
     std::shared_ptr<HashStringAllocator> hsaAllocator{nullptr};
-    // Uses a MonotonicMemoryResource owned exclusively by this RowContainer.
-    // clear() releases the resource together with the current batch of rows.
+    // Uses a MonotonicAllocator backed by a resource owned exclusively by this
+    // RowContainer. clear() releases the resource together with the current
+    // batch of rows and rebinds the allocator to a new resource.
     bool useMonotonicStringAllocation{false};
   };
 
@@ -1637,6 +1638,7 @@ class RowContainer {
   memory::AllocationPool rows_;
   std::unique_ptr<memory::SlabMemoryResource> slabMemoryResource_;
   std::unique_ptr<memory::MonotonicMemoryResource> monotonicMemoryResource_;
+  std::optional<memory::MonotonicAllocator<char>> monotonicAllocator_;
   std::shared_ptr<HashStringAllocator> stringAllocator_;
   bool useMonotonicStringAllocation_{false};
   std::vector<char*, StlAllocator<char*>> rowPointers_;

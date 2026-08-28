@@ -478,18 +478,18 @@ class RowContainer {
   /// Copies the values at 'col' into 'result' (starting at 'resultOffset')
   /// for the 'numRows' rows pointed to by 'rows'. If a 'row' is null, sets
   /// corresponding row in 'result' to null.
-  static void extractColumn(
+  void extractColumn(
       const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
       int32_t numRows,
       RowColumn col,
       vector_size_t resultOffset,
       const VectorPtr& result,
-      bool exactSize = false);
+      bool exactSize = false) const;
 
   /// Copies the values at 'col' into 'result' for the 'numRows' rows pointed to
   /// by 'rows'. If an entry in 'rows' is null, sets corresponding row in
   /// 'result' to null.
-  static void extractColumn(
+  void extractColumn(
       const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
       int32_t numRows,
       RowColumn col,
@@ -504,13 +504,13 @@ class RowContainer {
   /// 'result' to null. The positions in 'rowNumbers' array can repeat and also
   /// appear out of order. If rowNumbers has a negative value, then the
   /// corresponding row in 'result' is set to null.
-  static void extractColumn(
+  void extractColumn(
       const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
       folly::Range<const vector_size_t*> rowNumbers,
       RowColumn col,
       vector_size_t resultOffset,
       const VectorPtr& result,
-      bool exactSize = false);
+      bool exactSize = false) const;
 
   /// Sets in result all locations with null values in col for rows (for numRows
   /// number of rows).
@@ -1017,14 +1017,14 @@ class RowContainer {
   storeVariableSizeAt(const char* data, char* row, column_index_t column);
 
   template <TypeKind Kind>
-  static void extractColumnTyped(
+  void extractColumnTyped(
       const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
       folly::Range<const vector_size_t*> rowNumbers,
       int32_t numRows,
       RowColumn column,
       int32_t resultOffset,
       const VectorPtr& result,
-      bool exactSize) {
+      bool exactSize) const {
     if (rowNumbers.size() > 0) {
       extractColumnTypedInternal<true, Kind>(
           rows,
@@ -1041,14 +1041,14 @@ class RowContainer {
   }
 
   template <bool useRowNumbers, TypeKind Kind>
-  static void extractColumnTypedInternal(
+  void extractColumnTypedInternal(
       const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
       folly::Range<const vector_size_t*> rowNumbers,
       int32_t numRows,
       RowColumn column,
       int32_t resultOffset,
       const VectorPtr& result,
-      bool exactSize) {
+      bool exactSize) const {
     // Resize the result vector before all copies.
     result->resize(numRows + resultOffset);
 
@@ -1713,7 +1713,7 @@ inline void RowContainer::extractColumnTyped<TypeKind::OPAQUE>(
     RowColumn /*column*/,
     int32_t /*resultOffset*/,
     const VectorPtr& /*result*/,
-    bool /*exactSize*/) {
+    bool /*exactSize*/) const {
   BOLT_UNSUPPORTED("RowContainer doesn't support values of type OPAQUE");
 }
 
@@ -1723,7 +1723,7 @@ inline void RowContainer::extractColumn(
     RowColumn column,
     int32_t resultOffset,
     const VectorPtr& result,
-    bool exactSize) {
+    bool exactSize) const {
   BOLT_DYNAMIC_TYPE_DISPATCH_ALL(
       extractColumnTyped,
       result->typeKind(),
@@ -1742,7 +1742,7 @@ inline void RowContainer::extractColumn(
     RowColumn column,
     int32_t resultOffset,
     const VectorPtr& result,
-    bool exactSize) {
+    bool exactSize) const {
   BOLT_DYNAMIC_TYPE_DISPATCH_ALL(
       extractColumnTyped,
       result->typeKind(),

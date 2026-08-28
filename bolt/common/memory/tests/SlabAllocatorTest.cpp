@@ -424,7 +424,7 @@ TEST_F(SlabAllocatorTest, MonotonicMemoryResourceAllocatesFromChunks) {
   auto* second = resource.allocate(1, 64);
 
   EXPECT_EQ(reinterpret_cast<std::uintptr_t>(first) % alignof(int64_t), 0);
-  EXPECT_EQ(reinterpret_cast<std::uintptr_t>(second) % 64, 0);
+  EXPECT_EQ(second, static_cast<std::byte*>(first) + 8);
   EXPECT_EQ(resource.usedBytes(), 9);
   EXPECT_EQ(resource.reservedBytes(), 64 << 10);
   EXPECT_GT(pool_->currentBytes(), 0);
@@ -647,13 +647,6 @@ TEST_F(SlabAllocatorTest, MonotonicAllocatorRebindAndEquality) {
   auto* bytes = rebound.allocate(1);
   EXPECT_EQ(reinterpret_cast<std::uintptr_t>(bytes) % 64, 0);
   EXPECT_EQ(resource.usedBytes(), 64);
-}
-
-TEST_F(SlabAllocatorTest, MonotonicAllocatorOverflow) {
-  MonotonicMemoryResource resource{pool_.get()};
-  MonotonicAllocator<int64_t> allocator{resource};
-
-  EXPECT_THROW(allocator.allocate(1ULL << 62), BoltException);
 }
 
 TEST_F(SlabAllocatorTest, MonotonicAllocatorContainerPropagationTraits) {

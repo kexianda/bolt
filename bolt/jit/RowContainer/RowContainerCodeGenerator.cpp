@@ -180,12 +180,12 @@ std::string RowContainerCodeGenerator::GetCmpFuncName() {
       break;
   }
   fn.append(hasNullKeys ? "N" : "");
-  bool hasRowStringView = false;
+  bool hasStringView = false;
   for (auto i = 0; i < keysTypes.size(); ++i) {
     fn.append(keysTypes[i]->jitName());
     if (keysTypes[i]->kind() == bytedance::bolt::TypeKind::VARCHAR ||
         keysTypes[i]->kind() == bytedance::bolt::TypeKind::VARBINARY) {
-      hasRowStringView = true;
+      hasStringView = true;
     }
     if (!isEqualOp()) {
       fn.append(flags[i].nullsFirst ? "F" : "L"); // nulls first / nulls last
@@ -195,7 +195,7 @@ std::string RowContainerCodeGenerator::GetCmpFuncName() {
   for (auto i = 0; i < keyOffsets.size(); ++i) {
     fn.append(std::to_string(keyOffsets[i]));
   }
-  if (hasRowStringView && stringsAreContiguous_) {
+  if (hasStringView && stringsAreContiguous_) {
     fn.append("c");
   }
 

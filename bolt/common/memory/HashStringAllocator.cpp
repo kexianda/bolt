@@ -325,10 +325,14 @@ void HashStringAllocator::newContiguousRange(int32_t bytes, ByteRange* range) {
 
 // static
 StringView HashStringAllocator::contiguousString(
-    RowStringView view,
+    StringView view,
     std::string& storage) {
-  if (!view.isNonContiguous()) {
-    return std::bit_cast<StringView>(view);
+  if (view.isInline()) {
+    return view;
+  }
+  auto header = headerOf(view.data());
+  if (view.size() <= header->usableSize()) {
+    return view;
   }
 
   auto stream = prepareRead(headerOf(view.data()));
@@ -663,7 +667,8 @@ inline bool HashStringAllocator::storeStringFast(
           Header(header->size() - spaceTaken);
       freeHeader->setFree();
       header->clearFree();
-      memcpy(freeHeader->begin(), header->begin(), sizeof(CompactDoubleList));
+      *reinterpret_cast<CompactDoubleList*>(freeHeader->begin()) =
+          *reinterpret_cast<CompactDoubleList*>(header->begin());
       freeList.nextMoved(
           reinterpret_cast<CompactDoubleList*>(freeHeader->begin()));
       header->setSize(roundedBytes);
@@ -678,8 +683,8 @@ inline bool HashStringAllocator::storeStringFast(
     }
   }
   simd::memcpy(header->begin(), bytes, numBytes);
-  *reinterpret_cast<RowStringView*>(destination) =
-      RowStringView(reinterpret_cast<char*>(header->begin()), numBytes);
+  new (destination)
+      StringView(reinterpret_cast<char*>(header->begin()), numBytes);
   return true;
 }
 
@@ -699,9 +704,8 @@ void HashStringAllocator::copyMultipartNoInline(
 
   // The stringView has a pointer to the first byte and the total
   // size. Read with contiguousString().
-  auto& view = *reinterpret_cast<RowStringView*>(group + offset);
-  view = RowStringView(reinterpret_cast<char*>(position.position), numBytes);
-  view.setNonContiguous();
+  new (group + offset)
+      StringView(reinterpret_cast<char*>(position.position), numBytes);
 }
 
 std::string HashStringAllocator::toString() const {
@@ -850,8 +854,8 @@ void HashStringAllocator::checkEmpty() const {
 int HashStringAllocator::FastRowStringViewCompareAsc(
     char* l,
     char* r) noexcept {
-  const RowStringView* left = (const RowStringView*)(l);
-  const RowStringView* right = (const RowStringView*)(r);
+  const StringView* left = (const StringView*)(l);
+  const StringView* right = (const StringView*)(r);
 
   Header* leftHead = reinterpret_cast<Header*>(l);
   Header* rightHead = reinterpret_cast<Header*>(r);

@@ -356,7 +356,8 @@ bool VectorHasher::computeValueIdsForRows(
     int32_t offset,
     int32_t nullByte,
     uint8_t nullMask,
-    raw_vector<uint64_t>& result) {
+    raw_vector<uint64_t>& result,
+    bool stringsAreContiguous) {
   return VALUE_ID_TYPE_DISPATCH(
       makeValueIdsForRows,
       typeKind_,
@@ -365,7 +366,8 @@ bool VectorHasher::computeValueIdsForRows(
       offset,
       nullByte,
       nullMask,
-      result.data());
+      result.data(),
+      stringsAreContiguous);
 }
 
 template <>
@@ -375,21 +377,20 @@ bool VectorHasher::makeValueIdsForRows<TypeKind::VARCHAR>(
     int32_t offset,
     int32_t nullByte,
     uint8_t nullMask,
-    uint64_t* result) {
+    uint64_t* result,
+    bool stringsAreContiguous) {
   for (int32_t i = 0; i < numGroups; ++i) {
     if (isNullAt(groups[i], nullByte, nullMask)) {
       if (multiplier_ == 1) {
         result[i] = 0;
       }
     } else {
-      auto value = valueAt<RowStringView>(groups[i], offset);
-      auto id = kUnmappable;
-      if (!value.isNonContiguous()) [[likely]] {
-        id = valueId(std::bit_cast<StringView>(value));
-      } else {
-        std::string storage;
-        id = valueId(HashStringAllocator::contiguousString(value, storage));
+      auto value = valueAt<StringView>(groups[i], offset);
+      std::string storage;
+      if (!stringsAreContiguous) {
+        value = HashStringAllocator::contiguousString(value, storage);
       }
+      auto id = valueId(value);
       if (id == kUnmappable) {
         return false;
       }

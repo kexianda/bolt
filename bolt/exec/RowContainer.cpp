@@ -402,12 +402,12 @@ char* RowContainer::initializeRow(char* row, bool reuse) {
 
 void RowContainer::storeString(StringView value, char* row, int32_t offset) {
   if (value.size() == 0) {
-    valueAt<RowStringView>(row, offset) = RowStringView();
+    valueAt<StringView>(row, offset) = StringView();
     return;
   }
 
   if (value.isInline()) {
-    valueAt<RowStringView>(row, offset) = std::bit_cast<RowStringView>(value);
+    valueAt<StringView>(row, offset) = value;
     return;
   }
 
@@ -416,7 +416,7 @@ void RowContainer::storeString(StringView value, char* row, int32_t offset) {
     memory::MonotonicAllocator<char> allocator{monotonicMemoryResource_.get()};
     auto* data = allocator.allocate(value.size());
     simd::memcpy(data, value.data(), value.size());
-    valueAt<RowStringView>(row, offset) = RowStringView(data, value.size());
+    valueAt<StringView>(row, offset) = StringView(data, value.size());
     addVariableRowSize(row, value.size());
   } else {
     RowSizeTracker tracker(row[rowSizeOffset_], *stringAllocator_);
@@ -495,7 +495,7 @@ void RowContainer::eraseRowsSkippingKeys(folly::Range<char**> rows) {
         auto column = columnAt(i);
         for (auto row : rows) {
           if (!isNullAt(row, column.nullByte(), column.nullMask())) {
-            RowStringView view = valueAt<RowStringView>(row, column.offset());
+            StringView view = valueAt<StringView>(row, column.offset());
             if (!view.isInline() && !useMonotonicStringAllocation_) {
               stringAllocator_->free(
                   HashStringAllocator::headerOf(view.data()));
@@ -523,7 +523,7 @@ void RowContainer::freeVariableWidthFields(folly::Range<char**> rows) {
     switch (typeKinds_[i]) {
       case TypeKind::VARCHAR:
       case TypeKind::VARBINARY: {
-        freeVariableWidthFieldsAtColumn<RowStringView>(i, rows);
+        freeVariableWidthFieldsAtColumn<StringView>(i, rows);
         break;
       }
       case TypeKind::ROW:
@@ -621,7 +621,7 @@ int32_t RowContainer::variableSizeAt(const char* row, column_index_t column) {
 
   const auto typeKind = typeKinds_[column];
   if (typeKind == TypeKind::VARCHAR || typeKind == TypeKind::VARBINARY) {
-    return reinterpret_cast<const RowStringView*>(row + rowColumn.offset())
+    return reinterpret_cast<const StringView*>(row + rowColumn.offset())
         ->size();
   } else {
     return reinterpret_cast<const std::string_view*>(row + rowColumn.offset())
@@ -643,7 +643,7 @@ int32_t RowContainer::extractVariableSizeAt(
 
   const auto typeKind = typeKinds_[column];
   if (typeKind == TypeKind::VARCHAR || typeKind == TypeKind::VARBINARY) {
-    const auto value = valueAt<RowStringView>(row, rowColumn.offset());
+    const auto value = valueAt<StringView>(row, rowColumn.offset());
     const auto size = value.size();
     memcpy(output, &size, 4);
 
@@ -799,10 +799,10 @@ void RowContainer::copySerializedRow(
       continue;
     }
     if (isStr) {
-      RowStringView& sv =
-          *reinterpret_cast<RowStringView*>(serializedRow + rowColumn.offset());
+      StringView& sv =
+          *reinterpret_cast<StringView*>(serializedRow + rowColumn.offset());
       if (!sv.isInline()) {
-        storeString(std::bit_cast<StringView>(sv), newRow, rowColumn.offset());
+        storeString(sv, newRow, rowColumn.offset());
       }
     } else {
       auto& sv = *reinterpret_cast<std::string_view*>(
@@ -845,14 +845,15 @@ void RowContainer::storeSerializedRow(
 }
 
 void RowContainer::extractString(
-    RowStringView value,
+    StringView value,
     FlatVector<StringView>* values,
     vector_size_t index,
     bool exactSize) {
-  if (!value.isNonContiguous()) [[likely]] {
+  if (value.isInline() ||
+      reinterpret_cast<const HashStringAllocator::Header*>(value.data())[-1]
+              .usableSize() >= value.size()) {
     // The string is inline or all in one piece out of line.
-    values->setStringViewValue(
-        index, std::bit_cast<StringView>(value), exactSize);
+    values->setStringViewValue(index, value, exactSize);
     return;
   }
   auto rawBuffer = values->getRawStringBufferWithSpace(value.size(), exactSize);
@@ -904,7 +905,7 @@ void RowContainer::storeComplexType(
 
 //   static
 int32_t RowContainer::compareStringAsc(
-    RowStringView left,
+    StringView left,
     const DecodedVector& decoded,
     vector_size_t index) {
   if (useMonotonicStringAllocation_) {
@@ -924,8 +925,6 @@ int32_t RowContainer::compareStringAsc(
     return -1;
   } else if (leftPrefix > rightPrefix) {
     return 1;
-  } else if (!left.isNonContiguous()) [[likely]] {
-    return left.compare(right);
   } else {
     std::string storage;
     return HashStringAllocator::contiguousString(left, storage).compare(right);
@@ -933,11 +932,10 @@ int32_t RowContainer::compareStringAsc(
 }
 
 int32_t RowContainer::compareContiguousStringAsc(
-    RowStringView left,
+    StringView left,
     const DecodedVector& decoded,
     vector_size_t index) {
-  return std::bit_cast<StringView>(left).compare(
-      decoded.valueAt<StringView>(index));
+  return left.compare(decoded.valueAt<StringView>(index));
 }
 
 // static
@@ -953,7 +951,7 @@ int RowContainer::compareComplexType(
   return ContainerRowSerde::compare(*stream, decoded, index, flags);
 }
 
-int32_t RowContainer::compareStringAsc(RowStringView left, RowStringView right)
+int32_t RowContainer::compareStringAsc(StringView left, StringView right)
     const {
   if (useMonotonicStringAllocation_) {
     return compareContiguousStringAsc(left, right);
@@ -989,28 +987,19 @@ int32_t RowContainer::compareStringAsc(RowStringView left, RowStringView right)
         return left.size() - right.size();
       }
       return (inlined < otherInlined) ? -1 : 1;
-    } else if (!(left.isNonContiguous() || right.isNonContiguous()))
-        [[likely]] {
-      return left.compare(right);
     } else {
       std::string leftStorage;
       std::string rightStorage;
-      if (left.isNonContiguous()) [[unlikely]] {
-        left = HashStringAllocator::contiguousString(left, leftStorage);
-      }
-      if (right.isNonContiguous()) [[unlikely]] {
-        right = HashStringAllocator::contiguousString(right, rightStorage);
-      }
-      return left.compare(right);
+      return HashStringAllocator::contiguousString(left, leftStorage)
+          .compare(HashStringAllocator::contiguousString(right, rightStorage));
     }
   }
 }
 
 int32_t RowContainer::compareContiguousStringAsc(
-    RowStringView left,
-    RowStringView right) {
-  return std::bit_cast<StringView>(left).compare(
-      std::bit_cast<StringView>(right));
+    StringView left,
+    StringView right) {
+  return left.compare(right);
 }
 
 int32_t RowContainer::compareComplexType(
@@ -1056,12 +1045,12 @@ void RowContainer::hashTyped(
     } else {
       uint64_t hash;
       if (Kind == TypeKind::VARCHAR || Kind == TypeKind::VARBINARY) {
-        auto value = valueAt<RowStringView>(row, offset);
+        auto value = valueAt<StringView>(row, offset);
         std::string storage;
-        if (value.isNonContiguous()) [[unlikely]] {
+        if (!useMonotonicStringAllocation_) {
           value = HashStringAllocator::contiguousString(value, storage);
         }
-        hash = folly::hasher<RowStringView>()(value);
+        hash = folly::hasher<StringView>()(value);
       } else if (
           Kind == TypeKind::ROW || Kind == TypeKind::ARRAY ||
           Kind == TypeKind::MAP) {
@@ -1672,27 +1661,23 @@ extern "C" {
 __attribute__((__visibility__("default"))) int32_t jit_StringViewCompareWrapper(
     char* l,
     char* r) {
-  auto left = *reinterpret_cast<bytedance::bolt::RowStringView*>(l);
-  auto right = *reinterpret_cast<bytedance::bolt::RowStringView*>(r);
+  auto left = *reinterpret_cast<bytedance::bolt::StringView*>(l);
+  auto right = *reinterpret_cast<bytedance::bolt::StringView*>(r);
 
   // Note that, in the IR generation, prefix has been compared.
   // Here, assume that the prefix are equal
   int32_t size = std::min(left.size(), right.size()) -
-      bytedance::bolt::RowStringView::kPrefixSize;
+      bytedance::bolt::StringView::kPrefixSize;
   if (size <= 0) {
     // One ends within the prefix.
     return left.size() - right.size();
   }
   std::string leftStorage;
   std::string rightStorage;
-  auto contiguousLeft = left.isNonContiguous()
-      ? bytedance::bolt::HashStringAllocator::contiguousString(
-            left, leftStorage)
-      : std::bit_cast<bytedance::bolt::StringView>(left);
-  auto contiguousRight = right.isNonContiguous()
-      ? bytedance::bolt::HashStringAllocator::contiguousString(
-            right, rightStorage)
-      : std::bit_cast<bytedance::bolt::StringView>(right);
+  auto contiguousLeft =
+      bytedance::bolt::HashStringAllocator::contiguousString(left, leftStorage);
+  auto contiguousRight = bytedance::bolt::HashStringAllocator::contiguousString(
+      right, rightStorage);
   return contiguousLeft.compare(contiguousRight);
 }
 
@@ -1763,13 +1748,12 @@ jit_RowBased_ComplexTypeRowCmpRow(
 __attribute__((__visibility__("default"))) int8_t jit_StringViewRowEqVectors(
     char* l,
     char* r) {
-  auto left = *reinterpret_cast<bytedance::bolt::RowStringView*>(l);
+  auto left = *reinterpret_cast<bytedance::bolt::StringView*>(l);
   auto right = *reinterpret_cast<bytedance::bolt::StringView*>(r);
 
   std::string storage;
-  auto contiguousLeft = left.isNonContiguous()
-      ? bytedance::bolt::HashStringAllocator::contiguousString(left, storage)
-      : std::bit_cast<bytedance::bolt::StringView>(left);
+  auto contiguousLeft =
+      bytedance::bolt::HashStringAllocator::contiguousString(left, storage);
   return contiguousLeft.compare(right) == 0;
 }
 

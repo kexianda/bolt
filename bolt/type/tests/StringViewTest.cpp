@@ -61,24 +61,6 @@ TEST(StringView, basic) {
   }
 }
 
-TEST(StringView, nonContiguous) {
-  std::string text = "We are stardust, we are golden...";
-  RowStringView view(text.data(), text.size());
-
-  ASSERT_FALSE(view.isInline());
-  EXPECT_FALSE(view.isNonContiguous());
-  EXPECT_EQ(view.data(), text.data());
-
-  view.setNonContiguous();
-  EXPECT_TRUE(view.isNonContiguous());
-  EXPECT_EQ(view.data(), text.data());
-  EXPECT_EQ(view.materialize(), text);
-  EXPECT_EQ(view, RowStringView(text.data(), text.size()));
-
-  RowStringView inlineView("inline");
-  EXPECT_FALSE(inlineView.isNonContiguous());
-}
-
 TEST(StringView, comparison) {
   // Differ in prefix.
   EXPECT_LT(StringView(""), StringView("ab"));

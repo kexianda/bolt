@@ -31,8 +31,8 @@ void ContainerRow2RowSerde::serialize(
       continue;
     }
     if (isStr) {
-      const RowStringView& sv =
-          *reinterpret_cast<RowStringView*>(row + rowColumn.offset());
+      const StringView& sv =
+          *reinterpret_cast<StringView*>(row + rowColumn.offset());
       if (!sv.isInline()) {
         if (info.stringViewsAreContiguous ||
             reinterpret_cast<const HashStringAllocator::Header*>(sv.data())[-1]
@@ -83,10 +83,10 @@ int32_t ContainerRow2RowSerde::deserialize(
       continue;
     }
     if (isStr) {
-      RowStringView& sv =
-          *reinterpret_cast<RowStringView*>(current + rowColumn.offset());
+      StringView& sv =
+          *reinterpret_cast<StringView*>(current + rowColumn.offset());
       if (!sv.isInline()) {
-        sv = RowStringView(varBufferStart, sv.size());
+        sv = StringView(varBufferStart, sv.size());
         varBufferStart += sv.size();
       }
     } else {
@@ -129,10 +129,10 @@ void ContainerRow2RowSerde::copyRow(
       continue;
     }
     if (isStr) {
-      RowStringView& sv =
-          *reinterpret_cast<RowStringView*>(dest + rowColumn.offset());
+      StringView& sv =
+          *reinterpret_cast<StringView*>(dest + rowColumn.offset());
       if (!sv.isInline()) {
-        sv = RowStringView(varBufferStart, sv.size());
+        sv = StringView(varBufferStart, sv.size());
         varBufferStart += sv.size();
       }
     } else {

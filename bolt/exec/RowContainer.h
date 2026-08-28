@@ -989,7 +989,7 @@ class RowContainer {
     return rowColumns_;
   }
 
-  int32_t compareStringAsc(RowStringView left, RowStringView right) const;
+  int32_t compareStringAsc(StringView left, StringView right) const;
   static std::unique_ptr<ByteInputStream> prepareRead(
       const char* row,
       int32_t offset);
@@ -1144,7 +1144,7 @@ class RowContainer {
       } else if constexpr (std::is_same_v<T, StringView>) {
         // See StringView::compare()
         // so that null StringView is the max.
-        *reinterpret_cast<RowStringView*>(row + offset) = RowStringView();
+        *reinterpret_cast<StringView*>(row + offset) = StringView();
         reinterpret_cast<uint32_t*>(row + offset)[1] =
             std::numeric_limits<uint32_t>::max();
       } else {
@@ -1210,13 +1210,13 @@ class RowContainer {
         if constexpr (std::is_same_v<T, StringView>) {
           if constexpr (isContinuousString) {
             extractContinuousString(
-                valueAt<RowStringView>(row, offset),
+                valueAt<StringView>(row, offset),
                 result,
                 resultIndex,
                 exactSize);
           } else {
             extractString(
-                valueAt<RowStringView>(row, offset),
+                valueAt<StringView>(row, offset),
                 result,
                 resultIndex,
                 exactSize);
@@ -1257,13 +1257,13 @@ class RowContainer {
         if constexpr (std::is_same_v<T, StringView>) {
           if constexpr (isContinuousString) {
             extractContinuousString(
-                valueAt<RowStringView>(row, offset),
+                valueAt<StringView>(row, offset),
                 result,
                 resultIndex,
                 exactSize);
           } else {
             extractString(
-                valueAt<RowStringView>(row, offset),
+                valueAt<StringView>(row, offset),
                 result,
                 resultIndex,
                 exactSize);
@@ -1305,7 +1305,7 @@ class RowContainer {
     }
     if constexpr (Kind == TypeKind::VARCHAR || Kind == TypeKind::VARBINARY) {
       return compareStringAsc(
-                 valueAt<RowStringView>(row, offset), decoded, index) == 0;
+                 valueAt<StringView>(row, offset), decoded, index) == 0;
     }
     auto left = decoded.valueAt<T>(index);
     auto right = valueAt<T>(row, offset);
@@ -1327,7 +1327,7 @@ class RowContainer {
     }
     if constexpr (Kind == TypeKind::VARCHAR || Kind == TypeKind::VARBINARY) {
       return compareStringAsc(
-                 valueAt<RowStringView>(row, offset), decoded, index) == 0;
+                 valueAt<StringView>(row, offset), decoded, index) == 0;
     }
 
     using T = typename KindToFlatVector<Kind>::HashRowType;
@@ -1359,7 +1359,7 @@ class RowContainer {
     }
     if constexpr (Kind == TypeKind::VARCHAR || Kind == TypeKind::VARBINARY) {
       auto result = compareStringAsc(
-          valueAt<RowStringView>(row, column.offset()), decoded, index);
+          valueAt<StringView>(row, column.offset()), decoded, index);
       return flags.ascending ? result : result * -1;
     }
     auto left = valueAt<T>(row, column.offset());
@@ -1397,8 +1397,8 @@ class RowContainer {
           left, right, type, leftOffset, rightOffset, flags);
     }
     if constexpr (Kind == TypeKind::VARCHAR || Kind == TypeKind::VARBINARY) {
-      auto leftValue = valueAt<RowStringView>(left, leftOffset);
-      auto rightValue = valueAt<RowStringView>(right, rightOffset);
+      auto leftValue = valueAt<StringView>(left, leftOffset);
+      auto rightValue = valueAt<StringView>(right, rightOffset);
       auto result = compareStringAsc(leftValue, rightValue);
       return flags.ascending ? result : result * -1;
     }
@@ -1475,13 +1475,13 @@ class RowContainer {
   }
 
   static void extractString(
-      RowStringView value,
+      StringView value,
       FlatVector<StringView>* FOLLY_NONNULL values,
       vector_size_t index,
       bool exactSize);
 
   static inline void extractContinuousString(
-      RowStringView value,
+      StringView value,
       FlatVector<StringView>* FOLLY_NONNULL values,
       vector_size_t index,
       bool exactSize) {
@@ -1490,16 +1490,14 @@ class RowContainer {
   }
 
   int32_t compareStringAsc(
-      RowStringView left,
+      StringView left,
       const DecodedVector& decoded,
       vector_size_t index);
 
-  static int32_t compareContiguousStringAsc(
-      RowStringView left,
-      RowStringView right);
+  static int32_t compareContiguousStringAsc(StringView left, StringView right);
 
   static int32_t compareContiguousStringAsc(
-      RowStringView left,
+      StringView left,
       const DecodedVector& decoded,
       vector_size_t index);
 
@@ -1535,7 +1533,7 @@ class RowContainer {
       size_t column_index,
       folly::Range<char**> rows) {
     static_assert(
-        std::is_same_v<FieldType, RowStringView> ||
+        std::is_same_v<FieldType, StringView> ||
         std::is_same_v<FieldType, std::string_view>);
 
     const auto column = columnAt(column_index);
@@ -1545,7 +1543,7 @@ class RowContainer {
       }
 
       auto& view = valueAt<FieldType>(row, column.offset());
-      if constexpr (std::is_same_v<FieldType, RowStringView>) {
+      if constexpr (std::is_same_v<FieldType, StringView>) {
         if (view.isInline()) {
           continue;
         }

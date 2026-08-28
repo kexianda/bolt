@@ -30,6 +30,8 @@
 
 #pragma once
 
+#include <new>
+
 #include "bolt/common/base/CheckedArithmetic.h"
 #include "bolt/common/memory/AllocationPool.h"
 #include "bolt/common/memory/ByteStream.h"
@@ -202,8 +204,7 @@ class HashStringAllocator : public StreamArena {
   // always zero copy but will accommodate the odd extra large string.
   void copyMultipart(const StringView& str, char* group, int32_t offset) {
     if (str.isInline()) {
-      *reinterpret_cast<RowStringView*>(group + offset) =
-          std::bit_cast<RowStringView>(str);
+      new (group + offset) StringView(str);
       return;
     }
     copyMultipartNoInline(str, group, offset);
@@ -213,7 +214,7 @@ class HashStringAllocator : public StreamArena {
   // copyMultipart(). Uses 'storage' to own a possible temporary
   // copy. Making a temporary copy only happens for non-contiguous
   // strings.
-  static StringView contiguousString(RowStringView view, std::string& storage);
+  static StringView contiguousString(StringView view, std::string& storage);
 
   // Allocates 'size' contiguous bytes preceded by a Header. Returns
   // the address of Header.

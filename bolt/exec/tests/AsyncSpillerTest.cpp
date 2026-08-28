@@ -1523,10 +1523,10 @@ TEST_P(RowBasedSpillTest, withUring) {
 
           if (type->kind() == TypeKind::VARCHAR ||
               type->kind() == TypeKind::VARBINARY) {
-            const RowStringView& sv = *reinterpret_cast<RowStringView*>(
-                writeRow + writeColumn.offset());
-            const RowStringView& readSV =
-                *reinterpret_cast<RowStringView*>(row + readColumn.offset());
+            const StringView& sv =
+                *reinterpret_cast<StringView*>(writeRow + writeColumn.offset());
+            const StringView& readSV =
+                *reinterpret_cast<StringView*>(row + readColumn.offset());
             std::string s;
             if (sv.isInline() ||
                 reinterpret_cast<const HashStringAllocator::Header*>(

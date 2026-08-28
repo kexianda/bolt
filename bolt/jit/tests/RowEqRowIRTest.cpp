@@ -330,9 +330,9 @@ class RowEqRowTest : public OperatorTestBase {
     if (special && types.size() == 1 &&
         (types[0]->isVarchar() || types[0]->isVarbinary())) {
       for (auto i = 0; i < rows.size() - 1; i++) {
-        auto currStr = rowContainer->valueAt<RowStringView>(
+        auto currStr = rowContainer->valueAt<StringView>(
             rows[i], rowContainer->columnAt(0).offset());
-        auto nextStr = rowContainer->valueAt<RowStringView>(
+        auto nextStr = rowContainer->valueAt<StringView>(
             rows[i + 1], rowContainer->columnAt(0).offset());
         if (currStr == nextStr) {
           if (currStr.size() == 4) { // equal prefix but different size
@@ -887,22 +887,23 @@ TEST_F(RowEqRowTest, compareNonInlineStringsWithBothAllocators) {
         rowContainer->useMonotonicStringAllocation());
 
     auto rows = store(*rowContainer, decodedVectors, key1->size());
-    bool existNonContiguousString = false;
     for (auto* row : rows) {
       for (int32_t column = 0; column < types.size(); ++column) {
-        const auto value = rowContainer->valueAt<RowStringView>(
+        const auto value = rowContainer->valueAt<StringView>(
             row, rowContainer->columnAt(column).offset());
         ASSERT_FALSE(value.isInline());
         EXPECT_EQ(value.size(), kStringSize);
         EXPECT_EQ(
             std::string_view(value.data(), StringView::kPrefixSize),
             commonPrefix);
-        if (value.isNonContiguous()) {
-          existNonContiguousString = true;
+        if (!useMonotonicStringAllocation) {
+          std::string storage;
+          EXPECT_EQ(
+              HashStringAllocator::contiguousString(value, storage).size(),
+              kStringSize);
         }
       }
     }
-    EXPECT_EQ(existNonContiguousString, !useMonotonicStringAllocation);
 
     std::vector<CompareFlags> flags(types.size(), CompareFlags());
     auto [jitModule, functionName] = rowContainer->codegenCompare(

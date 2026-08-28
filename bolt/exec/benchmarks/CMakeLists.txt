@@ -85,6 +85,15 @@ add_executable(
   HashAggregationStringAllocationBenchmark.cpp
 )
 
+add_executable(bolt_hash_sort_string_allocation_benchmark SortStringAllocationBenchmark.cpp)
+target_link_libraries(
+  bolt_hash_sort_string_allocation_benchmark
+  PRIVATE
+    bolt_testutils
+    ${FOLLY_BENCHMARK}
+    GTest::gtest_main
+)
+
 target_link_libraries(
   bolt_hash_aggregation_string_allocation_benchmark
   PRIVATE

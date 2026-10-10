@@ -29,6 +29,7 @@
  */
 
 #include "bolt/common/memory/MemoryPool.h"
+#include "bolt/common/memory/MemoryResource.h"
 
 #include <gtest/gtest.h>
 
@@ -424,23 +425,27 @@ TEST_F(SlabAllocatorTest, MonotonicMemoryResourceAllocatesFromChunks) {
   auto* second = resource.allocate(1, 64);
 
   EXPECT_EQ(reinterpret_cast<std::uintptr_t>(first) % alignof(int64_t), 0);
-  EXPECT_EQ(second, static_cast<std::byte*>(first) + 8);
-  EXPECT_EQ(resource.usedBytes(), 9);
-  EXPECT_EQ(resource.reservedBytes(), 64 << 10);
+  EXPECT_EQ(reinterpret_cast<std::uintptr_t>(second) % 64, 0);
+  EXPECT_GE(
+      static_cast<std::byte*>(second), static_cast<std::byte*>(first) + 8);
+  EXPECT_EQ(resource.usedBytes(), 65);
+  EXPECT_EQ(resource.reservedBytes(), 128);
   EXPECT_GT(pool_->currentBytes(), 0);
 
   resource.deallocate(first, 8, alignof(int64_t));
   resource.deallocate(second, 1, 64);
 
-  EXPECT_EQ(resource.usedBytes(), 9);
+  EXPECT_EQ(resource.usedBytes(), 65);
   EXPECT_GT(pool_->currentBytes(), 0);
 }
 
-TEST_F(SlabAllocatorTest, MonotonicMemoryResourceDefaultsToByteAlignment) {
+TEST_F(SlabAllocatorTest, MonotonicMemoryResourceSupportsByteAlignment) {
   MonotonicMemoryResource resource{pool_.get()};
 
-  auto* first = static_cast<std::byte*>(resource.allocate(3));
-  auto* second = static_cast<std::byte*>(resource.allocate(5));
+  auto* first =
+      static_cast<std::byte*>(resource.allocate(3, alignof(std::byte)));
+  auto* second =
+      static_cast<std::byte*>(resource.allocate(5, alignof(std::byte)));
 
   EXPECT_EQ(second, first + 3);
   EXPECT_EQ(resource.usedBytes(), 8);
@@ -451,7 +456,7 @@ TEST_F(
     MonotonicMemoryResourceSelectsChunkSizeByRequestSize) {
   auto verifyReservedBytes = [&](std::size_t allocationBytes,
                                  std::size_t expectedReservedBytes) {
-    MonotonicMemoryResource resource{pool_.get(), 128};
+    MonotonicMemoryResource resource{pool_.get()};
     auto* data = resource.allocate(allocationBytes, alignof(std::max_align_t));
 
     EXPECT_NE(data, nullptr);
@@ -461,7 +466,7 @@ TEST_F(
 
   verifyReservedBytes(16 << 10, 64 << 10);
   verifyReservedBytes(64 << 10, 64 << 10);
-  verifyReservedBytes((64 << 10) + 1, (64 << 10) + 1);
+  verifyReservedBytes((64 << 10) + 1, (64 << 10) + pool_->alignment());
 }
 
 TEST_F(SlabAllocatorTest, MonotonicMemoryResourceAllocatesLargeChunks) {
@@ -513,14 +518,14 @@ TEST_F(SlabAllocatorTest, MonotonicMemoryResourceAllocatesLargeChunks) {
   EXPECT_EQ(pool_->currentBytes(), 0);
 }
 
-TEST_F(SlabAllocatorTest, MonotonicMemoryResourceDoesNotReuseExactFit) {
-  MonotonicMemoryResource resource{pool_.get(), 128};
+TEST_F(SlabAllocatorTest, MonotonicMemoryResourceReusesExactFit) {
+  MonotonicMemoryResource resource{pool_.get()};
 
   ASSERT_NE(resource.allocate(32 << 10, alignof(std::max_align_t)), nullptr);
   ASSERT_NE(resource.allocate(32 << 10, alignof(std::max_align_t)), nullptr);
 
   EXPECT_EQ(resource.usedBytes(), 64 << 10);
-  EXPECT_EQ(resource.reservedBytes(), 128 << 10);
+  EXPECT_EQ(resource.reservedBytes(), 64 << 10);
 }
 
 TEST_F(
@@ -549,7 +554,7 @@ TEST_F(SlabAllocatorTest, MonotonicMemoryResourceReleasesChunksOnDestroy) {
     EXPECT_NE(first, nullptr);
     EXPECT_NE(second, nullptr);
     EXPECT_EQ(resource.usedBytes(), 1800);
-    EXPECT_EQ(resource.reservedBytes(), 64 << 10);
+    EXPECT_EQ(resource.reservedBytes(), 2048);
     EXPECT_GT(pool_->currentBytes(), 0);
   }
 
@@ -770,13 +775,90 @@ TEST_F(SlabAllocatorTest, MoveAndSwapExchangeState) {
   EXPECT_EQ(otherResource.usedBytes(), 128);
 
   SlabAllocator<char, 64> moved{std::move(left)};
-  EXPECT_NE(moved, left);
+  EXPECT_EQ(moved, left);
   EXPECT_EQ(otherResource.usedBytes(), 128);
 
   moved.deallocate(rightValue, 65);
   right.deallocate(leftValue, 1);
   EXPECT_EQ(resource_->usedBytes(), 0);
   EXPECT_EQ(otherResource.usedBytes(), 0);
+}
+
+template <typename Allocator, typename Resource>
+void checkMovedFromContainers(Resource& resource, Resource& otherResource) {
+  using Vector = std::vector<int64_t, Allocator>;
+  Vector source{Allocator{resource}};
+  source.assign({1, 2, 3});
+  Vector moved{std::move(source)};
+  source.push_back(4);
+  expectVectorContents(source, {4});
+  expectVectorContents(moved, {1, 2, 3});
+  Vector target{Allocator{otherResource}};
+  target.assign({5, 6});
+  target = std::move(moved);
+  moved.push_back(7);
+  expectVectorContents(moved, {7});
+  expectVectorContents(target, {1, 2, 3});
+}
+
+TEST_F(SlabAllocatorTest, ReuseContainersAfterMove) {
+  SlabMemoryResource other{pool_.get()};
+  checkMovedFromContainers<SlabAllocator<int64_t>>(*resource_, other);
+  MonotonicMemoryResource mono{pool_.get()};
+  MonotonicMemoryResource otherMono{pool_.get()};
+  checkMovedFromContainers<MonotonicAllocator<int64_t>>(mono, otherMono);
+}
+
+TEST_F(SlabAllocatorTest, MixedAlignmentOverflowAndReuse) {
+  MonotonicMemoryResource resource{pool_.get(), 128};
+  MonotonicAllocator<char> bytes{resource};
+  MonotonicAllocator<uint64_t> words{resource};
+  auto* first = bytes.allocate(1);
+  *first = 'x';
+  auto* word = words.allocate(1);
+  EXPECT_EQ(reinterpret_cast<std::uintptr_t>(word) % alignof(uint64_t), 0);
+  *word = 123;
+  EXPECT_EQ(*first, 'x');
+  const auto used = resource.usedBytes();
+  EXPECT_THROW(words.allocate(1ULL << 61), BoltException);
+  EXPECT_EQ(resource.usedBytes(), used);
+  resource.release();
+  EXPECT_EQ(pool_->currentBytes(), 0);
+  EXPECT_EQ(resource.usedBytes(), 0);
+  EXPECT_EQ(resource.reservedBytes(), 0);
+  EXPECT_NE(bytes.allocate(1), nullptr);
+  EXPECT_EQ(resource.reservedBytes(), 128);
+}
+
+TEST_F(SlabAllocatorTest, SmallAllocationsOnlyAccountInPool) {
+  for (bool mmap : {false, true}) {
+    SCOPED_TRACE(mmap);
+    MemoryManager::Options options;
+    options.trackDefaultUsage = true;
+    options.useMmapAllocator = mmap;
+    options.allocatorCapacity = 32 << 20;
+    options.arbitratorCapacity = 64 << 20;
+    options.allocationSizeThresholdWithReservation = 0;
+    options.maxMallocBytes = 0;
+    MemoryManager manager{options};
+    auto pool = manager.addLeafPool("accounting");
+    auto* backend =
+        static_cast<MemoryPoolImpl*>(pool.get())->testingAllocator();
+    const auto baseline = backend->totalUsedBytes();
+    SlabMemoryResource resource{pool.get()};
+    auto* first = resource.allocate(64, 64);
+    auto* second = resource.allocate(64, 64);
+    EXPECT_EQ(backend->totalUsedBytes(), baseline);
+    EXPECT_EQ(resource.usedBytes(), 128);
+    EXPECT_EQ(resource.reservedBytes(), 1 << 20);
+    EXPECT_EQ(pool->usedBytes(), 1 << 20);
+    resource.deallocate(first, 64, 64);
+    EXPECT_EQ(pool->usedBytes(), 1 << 20);
+    resource.deallocate(second, 64, 64);
+    EXPECT_EQ(backend->totalUsedBytes(), baseline);
+    EXPECT_EQ(pool->usedBytes(), 0);
+    EXPECT_EQ(resource.reservedBytes(), 0);
+  }
 }
 
 } // namespace

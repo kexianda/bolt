@@ -38,18 +38,18 @@
 #include "bolt/common/memory/MemoryResource.h"
 
 DEFINE_int64(
-    stl_container_allocator_max_total_insertions,
+    bolt_benchmark_stl_container_allocator_max_total_insertions,
     600'000'000,
     "Skip cases whose concurrent vector+map insertion count is larger than "
     "this cap");
 
 DEFINE_int32(
-    stl_container_allocator_repeats,
+    bolt_benchmark_stl_container_allocator_repeats,
     1,
     "Repeat count for each benchmark case");
 
 DEFINE_int32(
-    stl_container_allocator_concurrency,
+    bolt_benchmark_stl_container_allocator_concurrency,
     4,
     "Number of concurrent allocator workers to run per benchmark case");
 
@@ -105,58 +105,10 @@ namespace {
 // done
 //
 // The default max-total-insertions cap skips cases that are too large for
-// routine local runs. Increase --stl_container_allocator_max_total_insertions
+// routine local runs. Increase --bolt_benchmark_stl_container_allocator_max_total_insertions
 // to run larger cases explicitly.
 //
-// Result on 2026-07-01, Release build, concurrency=4:
-//
-// | allocator              | N    | M      | time/iter | retained/reserved bytes | external peak RSS | skipped |
-// |------------------------|------|--------|-----------|-------------------------|-------------------|---------|
-// | HashStringStlAllocator | 1K   | 10     | 2.11ms    | 9,437,184               | 63,332 KiB        | false   |
-// | SlabAllocator          | 1K   | 10     | 1.15ms    | 4,194,304               | 57,392 KiB        | false   |
-// | MemoryStlAllocator     | 1K   | 10     | 3.36ms    | 0                       | 62,460 KiB        | false   |
-// | HashStringStlAllocator | 1K   | 100    | 16.35ms   | 26,214,400              | 79,656 KiB        | false   |
-// | SlabAllocator          | 1K   | 100    | 12.79ms   | 25,165,824              | 82,720 KiB        | false   |
-// | MemoryStlAllocator     | 1K   | 100    | 30.66ms   | 0                       | 132,992 KiB       | false   |
-// | HashStringStlAllocator | 1K   | 1000   | 190.12ms  | 251,920,384             | 300,428 KiB       | false   |
-// | SlabAllocator          | 1K   | 1000   | 144.13ms  | 230,686,720             | 342,592 KiB       | false   |
-// | MemoryStlAllocator     | 1K   | 1000   | 338.29ms  | 0                       | 850,088 KiB       | false   |
-// | HashStringStlAllocator | 1K   | 10000  | 2.22s     | 2,459,435,008           | 2,456,160 KiB     | false   |
-// | SlabAllocator          | 1K   | 10000  | 2.35s     | 1,967,128,576           | 2,933,756 KiB     | false   |
-// | MemoryStlAllocator     | 1K   | 10000  | 5.01s     | 0                       | 7,821,940 KiB     | false   |
-// | HashStringStlAllocator | 1K   | 100000 | 18.98ns   | 0                       | 51,472 KiB        | true    |
-// | SlabAllocator          | 1K   | 100000 | 3.01ns    | 0                       | 51,632 KiB        | true    |
-// | MemoryStlAllocator     | 1K   | 100000 | 18.86ns   | 0                       | 51,620 KiB        | true    |
-// | HashStringStlAllocator | 16K  | 10     | 23.74ms   | 42,991,616              | 101,288 KiB       | false   |
-// | SlabAllocator          | 16K  | 10     | 17.39ms   | 37,748,736              | 106,864 KiB       | false   |
-// | MemoryStlAllocator     | 16K  | 10     | 52.05ms   | 0                       | 198,564 KiB       | false   |
-// | HashStringStlAllocator | 16K  | 100    | 272.13ms  | 395,313,152             | 445,908 KiB       | false   |
-// | SlabAllocator          | 16K  | 100    | 259.06ms  | 369,098,752             | 521,020 KiB       | false   |
-// | MemoryStlAllocator     | 16K  | 100    | 631.95ms  | 0                       | 1,348,996 KiB     | false   |
-// | HashStringStlAllocator | 16K  | 1000   | 4.43s     | 3,939,500,032           | 3,912,092 KiB     | false   |
-// | SlabAllocator          | 16K  | 1000   | 2.79s     | 3,670,016,000           | 4,667,840 KiB     | false   |
-// | MemoryStlAllocator     | 16K  | 1000   | 6.40s     | 0                       | 12,503,524 KiB    | false   |
-// | HashStringStlAllocator | 16K  | 10000  | 18.88ns   | 0                       | 51,564 KiB        | true    |
-// | SlabAllocator          | 16K  | 10000  | 7.17ns    | 0                       | 51,584 KiB        | true    |
-// | MemoryStlAllocator     | 16K  | 10000  | 18.88ns   | 0                       | 51,192 KiB        | true    |
-// | HashStringStlAllocator | 16K  | 100000 | 18.92ns   | 0                       | 51,528 KiB        | true    |
-// | SlabAllocator          | 16K  | 100000 | 3.34ns    | 0                       | 51,572 KiB        | true    |
-// | MemoryStlAllocator     | 16K  | 100000 | 18.68ns   | 0                       | 51,532 KiB        | true    |
-// | HashStringStlAllocator | 256K | 10     | 383.91ms  | 638,582,784             | 767,828 KiB       | false   |
-// | SlabAllocator          | 256K | 10     | 381.02ms  | 587,202,560             | 897,828 KiB       | false   |
-// | MemoryStlAllocator     | 256K | 10     | 1.28s     | 0                       | 2,339,372 KiB     | false   |
-// | HashStringStlAllocator | 256K | 100    | 4.50s     | 6,300,893,184           | 6,297,236 KiB     | false   |
-// | SlabAllocator          | 256K | 100    | 4.45s     | 5,872,025,600           | 7,532,656 KiB     | false   |
-// | MemoryStlAllocator     | 256K | 100    | 10.72s    | 0                       | 20,190,108 KiB    | false   |
-// | HashStringStlAllocator | 256K | 1000   | 20.72ns   | 0                       | 51,528 KiB        | true    |
-// | SlabAllocator          | 256K | 1000   | 3.01ns    | 0                       | 51,508 KiB        | true    |
-// | MemoryStlAllocator     | 256K | 1000   | 20.49ns   | 0                       | 51,556 KiB        | true    |
-// | HashStringStlAllocator | 256K | 10000  | 18.54ns   | 0                       | 51,508 KiB        | true    |
-// | SlabAllocator          | 256K | 10000  | 3.34ns    | 0                       | 51,584 KiB        | true    |
-// | MemoryStlAllocator     | 256K | 10000  | 18.65ns   | 0                       | 51,532 KiB        | true    |
-// | HashStringStlAllocator | 256K | 100000 | 25.67ns   | 0                       | 51,476 KiB        | true    |
-// | SlabAllocator          | 256K | 100000 | 7.02ns    | 0                       | 51,460 KiB        | true    |
-// | MemoryStlAllocator     | 256K | 100000 | 18.92ns   | 0                       | 51,532 KiB        | true    |
+// Re-run measurements after changes to allocation or accounting semantics.
 // clang-format on
 
 constexpr int64_t kAllocatorCapacity = 64L << 30;
@@ -204,8 +156,8 @@ class BenchmarkMemory {
 
 bool shouldSkip(int64_t n, int64_t m) {
   return n > 0 &&
-      m > FLAGS_stl_container_allocator_max_total_insertions / n / 2 /
-          FLAGS_stl_container_allocator_concurrency;
+      m > FLAGS_bolt_benchmark_stl_container_allocator_max_total_insertions /
+          n / 2 / FLAGS_bolt_benchmark_stl_container_allocator_concurrency;
 }
 
 void printStats(const BenchmarkStats& stats) {
@@ -236,7 +188,8 @@ void mergeStats(BenchmarkStats& stats, const BenchmarkStats& local) {
 
 template <typename Worker>
 void runConcurrentWorkers(Worker&& worker) {
-  const auto concurrency = FLAGS_stl_container_allocator_concurrency;
+  const auto concurrency =
+      FLAGS_bolt_benchmark_stl_container_allocator_concurrency;
   BOLT_CHECK_GT(concurrency, 0);
 
   std::atomic<int32_t> ready{0};
@@ -284,8 +237,8 @@ BenchmarkStats runHashStringStlAllocator() {
       .allocator = "HashStringStlAllocator",
       .numContainers = N,
       .elementsPerContainer = M,
-      .repeats = FLAGS_stl_container_allocator_repeats,
-      .concurrency = FLAGS_stl_container_allocator_concurrency,
+      .repeats = FLAGS_bolt_benchmark_stl_container_allocator_repeats,
+      .concurrency = FLAGS_bolt_benchmark_stl_container_allocator_concurrency,
       .skipped = shouldSkip(N, M),
   };
   if (stats.skipped) {
@@ -314,7 +267,8 @@ BenchmarkStats runHashStringStlAllocator() {
       maps.emplace_back(std::less<int64_t>{}, mapAllocator);
     }
 
-    for (int32_t repeat = 0; repeat < FLAGS_stl_container_allocator_repeats;
+    for (int32_t repeat = 0;
+         repeat < FLAGS_bolt_benchmark_stl_container_allocator_repeats;
          ++repeat) {
       int64_t checksum = 0;
       for (int64_t i = 0; i < N; ++i) {
@@ -355,8 +309,8 @@ BenchmarkStats runSlabAllocator() {
       .allocator = "SlabAllocator",
       .numContainers = N,
       .elementsPerContainer = M,
-      .repeats = FLAGS_stl_container_allocator_repeats,
-      .concurrency = FLAGS_stl_container_allocator_concurrency,
+      .repeats = FLAGS_bolt_benchmark_stl_container_allocator_repeats,
+      .concurrency = FLAGS_bolt_benchmark_stl_container_allocator_concurrency,
       .skipped = shouldSkip(N, M),
   };
   if (stats.skipped) {
@@ -385,7 +339,8 @@ BenchmarkStats runSlabAllocator() {
       maps.emplace_back(std::less<int64_t>{}, mapAllocator);
     }
 
-    for (int32_t repeat = 0; repeat < FLAGS_stl_container_allocator_repeats;
+    for (int32_t repeat = 0;
+         repeat < FLAGS_bolt_benchmark_stl_container_allocator_repeats;
          ++repeat) {
       int64_t checksum = 0;
       for (int64_t i = 0; i < N; ++i) {
@@ -427,8 +382,8 @@ BenchmarkStats runMemoryStlAllocator() {
       .allocator = "MemoryStlAllocator",
       .numContainers = N,
       .elementsPerContainer = M,
-      .repeats = FLAGS_stl_container_allocator_repeats,
-      .concurrency = FLAGS_stl_container_allocator_concurrency,
+      .repeats = FLAGS_bolt_benchmark_stl_container_allocator_repeats,
+      .concurrency = FLAGS_bolt_benchmark_stl_container_allocator_concurrency,
       .skipped = shouldSkip(N, M),
   };
   if (stats.skipped) {
@@ -456,7 +411,8 @@ BenchmarkStats runMemoryStlAllocator() {
       maps.emplace_back(std::less<int64_t>{}, mapAllocator);
     }
 
-    for (int32_t repeat = 0; repeat < FLAGS_stl_container_allocator_repeats;
+    for (int32_t repeat = 0;
+         repeat < FLAGS_bolt_benchmark_stl_container_allocator_repeats;
          ++repeat) {
       int64_t checksum = 0;
       for (int64_t i = 0; i < N; ++i) {

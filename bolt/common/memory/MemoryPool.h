@@ -31,14 +31,8 @@
 #pragma once
 
 #include <atomic>
-#include <cstddef>
-#include <cstdlib>
-#include <limits>
 #include <memory>
-#include <new>
 #include <optional>
-#include <type_traits>
-#include <utility>
 
 #include <fmt/format.h>
 #include "bolt/common/base/BitUtil.h"
@@ -53,20 +47,11 @@
 namespace bytedance::bolt::memory {
 class TestArbitrator;
 class MemoryManager;
-class SlabMemoryResource;
-class MonotonicMemoryResource;
 
 constexpr int64_t kMaxMemory = std::numeric_limits<int64_t>::max();
 
 template <typename T>
 class StlAllocator;
-template <typename T = std::byte, std::size_t Alignment = alignof(T)>
-requires(
-    Alignment > 0 && (Alignment & (Alignment - 1)) == 0) class SlabAllocator;
-template <typename T = std::byte, std::size_t Alignment = alignof(T)>
-requires(
-    Alignment > 0 &&
-    (Alignment & (Alignment - 1)) == 0) class MonotonicAllocator;
 
 /// This class provides the memory allocation interfaces for a query execution.
 /// Each query execution entity creates a dedicated memory pool object. The
@@ -630,10 +615,6 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   friend class bolt::memory::TestArbitrator;
   friend class MemoryPoolArbitrationSection;
   friend class ArbitrationParticipant;
-  template <typename T, std::size_t Alignment>
-  requires(
-      Alignment > 0 &&
-      (Alignment & (Alignment - 1)) == 0) friend class SlabAllocator;
 
   BOLT_FRIEND_TEST(MemoryPoolTest, shrinkAndGrowAPIs);
   BOLT_FRIEND_TEST(MemoryPoolTest, grow);
@@ -647,11 +628,6 @@ std::ostream& operator<<(std::ostream& os, const MemoryPool::Stats& stats);
 
 class MemoryPoolImpl : public MemoryPool {
   friend class SlabMemoryResource;
-
-  template <typename T, std::size_t Alignment>
-  requires(
-      Alignment > 0 &&
-      (Alignment & (Alignment - 1)) == 0) friend class SlabAllocator;
 
  public:
   /// The callback invoked on the root memory pool destruction. It is set by
@@ -1116,12 +1092,6 @@ class MemoryPoolImpl : public MemoryPool {
 
   std::unique_ptr<MemoryAllocationListener> listener_;
 };
-
-} // namespace bytedance::bolt::memory
-
-#include "bolt/common/memory/MemoryResource.h"
-
-namespace bytedance::bolt::memory {
 
 /// An Allocator backed by a memory pool for STL containers.
 template <typename T>

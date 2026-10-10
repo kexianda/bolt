@@ -35,13 +35,16 @@ using namespace bytedance::bolt::exec;
 using namespace bytedance::bolt::exec::test;
 using namespace bytedance::bolt::test;
 
-DEFINE_int32(aggregation_benchmark_rows, 10'000'000, "Number of input rows");
 DEFINE_int32(
-    aggregation_benchmark_groups,
+    bolt_benchmark_aggregation_benchmark_rows,
+    10'000'000,
+    "Number of input rows");
+DEFINE_int32(
+    bolt_benchmark_aggregation_benchmark_groups,
     1'000'000,
     "Number of distinct groups");
 DEFINE_int32(
-    aggregation_benchmark_batch_rows,
+    bolt_benchmark_aggregation_benchmark_batch_rows,
     10'000,
     "Number of rows per input batch");
 
@@ -54,11 +57,12 @@ constexpr int32_t kNumColumns = kNumKeys + kNumValues;
 class HashAggregationStringAllocationBenchmark : public VectorTestBase {
  public:
   HashAggregationStringAllocationBenchmark() {
-    BOLT_CHECK_GT(FLAGS_aggregation_benchmark_rows, 0);
-    BOLT_CHECK_GT(FLAGS_aggregation_benchmark_groups, 0);
+    BOLT_CHECK_GT(FLAGS_bolt_benchmark_aggregation_benchmark_rows, 0);
+    BOLT_CHECK_GT(FLAGS_bolt_benchmark_aggregation_benchmark_groups, 0);
     BOLT_CHECK_LE(
-        FLAGS_aggregation_benchmark_groups, FLAGS_aggregation_benchmark_rows);
-    BOLT_CHECK_GT(FLAGS_aggregation_benchmark_batch_rows, 0);
+        FLAGS_bolt_benchmark_aggregation_benchmark_groups,
+        FLAGS_bolt_benchmark_aggregation_benchmark_rows);
+    BOLT_CHECK_GT(FLAGS_bolt_benchmark_aggregation_benchmark_batch_rows, 0);
     makeData();
     makePlan();
   }
@@ -70,7 +74,8 @@ class HashAggregationStringAllocationBenchmark : public VectorTestBase {
                       .config("use_mono_alloc", useMonoAlloc ? "true" : "false")
                       .copyResults(pool_.get(), task);
     BOLT_CHECK_NOT_NULL(task);
-    BOLT_CHECK_EQ(result->size(), FLAGS_aggregation_benchmark_groups);
+    BOLT_CHECK_EQ(
+        result->size(), FLAGS_bolt_benchmark_aggregation_benchmark_groups);
     BOLT_CHECK_EQ(result->childrenSize(), kNumColumns);
     folly::doNotOptimizeAway(result);
     return task->pool()->peakBytes();
@@ -98,11 +103,12 @@ class HashAggregationStringAllocationBenchmark : public VectorTestBase {
     }
     rowType_ = ROW(std::move(names), std::move(types));
 
-    for (int32_t batchStart = 0; batchStart < FLAGS_aggregation_benchmark_rows;
-         batchStart += FLAGS_aggregation_benchmark_batch_rows) {
+    for (int32_t batchStart = 0;
+         batchStart < FLAGS_bolt_benchmark_aggregation_benchmark_rows;
+         batchStart += FLAGS_bolt_benchmark_aggregation_benchmark_batch_rows) {
       const auto batchSize = std::min(
-          FLAGS_aggregation_benchmark_batch_rows,
-          FLAGS_aggregation_benchmark_rows - batchStart);
+          FLAGS_bolt_benchmark_aggregation_benchmark_batch_rows,
+          FLAGS_bolt_benchmark_aggregation_benchmark_rows - batchStart);
       std::vector<VectorPtr> children;
       children.reserve(kNumColumns);
       for (auto column = 0; column < kNumColumns; ++column) {
@@ -111,7 +117,7 @@ class HashAggregationStringAllocationBenchmark : public VectorTestBase {
             batchSize, [batchStart, column, length](auto row) {
               const auto inputRow = batchStart + row;
               const auto value = column < kNumKeys
-                  ? inputRow % FLAGS_aggregation_benchmark_groups
+                  ? inputRow % FLAGS_bolt_benchmark_aggregation_benchmark_groups
                   : inputRow;
               return makeString(value, column, length);
             }));
@@ -175,9 +181,6 @@ int main(int argc, char** argv) {
   memory::MemoryManager::Options options;
   options.useMmapAllocator = false;
   options.allocatorCapacity = 64UL << 30;
-#ifdef BOLT_AGG_BENCHMARK_HAS_ALIGNED_BUF_ALLOC_STRATEGY
-  options.enableAlignedBufAllocStrategy = false;
-#endif
   memory::MemoryManager::initialize(options);
   aggregate::prestosql::registerAllAggregateFunctions();
   parse::registerTypeResolver();

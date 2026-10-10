@@ -32,6 +32,7 @@
 #include "bolt/common/base/CompareFlags.h"
 #include "bolt/common/base/RuntimeMetrics.h"
 #include "bolt/common/file/FileSystems.h"
+#include "bolt/common/memory/MemoryResource.h"
 #include "bolt/common/testutil/TestValue.h"
 #include "bolt/exec/RowContainer.h"
 #include "bolt/serializers/PrestoSerializer.h"

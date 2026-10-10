@@ -102,12 +102,6 @@ target_link_libraries(
     GTest::gtest_main
 )
 
-target_compile_definitions(
-  bolt_hash_aggregation_string_allocation_benchmark
-  PRIVATE
-    BOLT_AGG_BENCHMARK_HAS_ALIGNED_BUF_ALLOC_STRATEGY
-)
-
 add_executable(
   bolt_hash_string_monotonic_allocator_benchmark
   HashStringMonotonicAllocatorBenchmark.cpp
@@ -127,10 +121,18 @@ target_link_libraries(
   bolt_row_container_varchar_orderby_benchmark
   PRIVATE
     bolt_testutils
-    $<TARGET_NAME_IF_EXISTS:bolt_test_util_gperf>
     ${FOLLY_BENCHMARK}
     GTest::gtest_main
 )
+
+if(TARGET bolt_test_util_gperf)
+  target_link_libraries(bolt_row_container_varchar_orderby_benchmark PRIVATE bolt_test_util_gperf)
+  target_compile_definitions(
+    bolt_row_container_varchar_orderby_benchmark
+    PRIVATE
+      BOLT_BENCHMARK_HAS_PROFILER
+  )
+endif()
 
 add_executable(bolt_row_container_store_string_benchmark RowContainerStoreStringBenchmark.cpp)
 

@@ -33,6 +33,7 @@
 #include <folly/container/F14Set.h>
 #include <cstdint>
 #include <optional>
+#include "bolt/common/memory/MemoryResource.h"
 
 #include "bolt/common/base/SpillConfig.h"
 #include "bolt/common/base/SpillStats.h"

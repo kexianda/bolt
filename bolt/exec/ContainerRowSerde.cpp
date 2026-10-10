@@ -29,6 +29,7 @@
  */
 
 #include "bolt/exec/ContainerRowSerde.h"
+#include "bolt/common/memory/MemoryResource.h"
 
 #include "bolt/exec/VariantSerdeDetail.h"
 #include "bolt/vector/ComplexVector.h"

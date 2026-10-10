@@ -29,6 +29,7 @@
 #include <mutex>
 #include <thread>
 #include <vector>
+#include "bolt/common/memory/MemoryResource.h"
 
 #include <folly/Benchmark.h>
 #include <folly/init/Init.h>
@@ -38,33 +39,15 @@
 #include "bolt/common/memory/MemoryPool.h"
 
 DEFINE_int64(
-    slab_allocator_benchmark_count,
+    bolt_benchmark_slab_allocator_benchmark_count,
     2'000'000,
     "The total number of small allocations in allocator benchmark");
 
 using namespace bytedance::bolt;
 using namespace bytedance::bolt::memory;
 
-/*
-============================================================================
-[...]s/unstable/SlabAllocatorBenchmark.cpp     relative  time/iter   iters/s
-============================================================================
-HashStringAllocatorFifoAllocFree256K_1Thread               66.86ns    14.96M
-AlignedStlAllocatorFifoAllocFree256K_1Thread    84.829%    78.81ns    12.69M
-SlabAllocatorFifoAllocFree256K_1Thread          387.34%    17.26ns    57.93M
-----------------------------------------------------------------------------
-HashStringAllocatorFifoAllocFree256K_8Threads              58.47ns    17.10M
-AlignedStlAllocatorFifoAllocFree256K_8Threads   10.372%   563.70ns     1.77M
-SlabAllocatorFifoAllocFree256K_8Threads         384.63%    15.20ns    65.79M
-----------------------------------------------------------------------------
-HashStringAllocatorFifoAllocFree256K_16Threads             71.12ns    14.06M
-AlignedStlAllocatorFifoAllocFree256K_16Threads  4.8522%     1.47us   682.24K
-SlabAllocatorFifoAllocFree256K_16Threads        432.97%    16.43ns    60.88M
-----------------------------------------------------------------------------
-HashStringAllocatorFifoAllocFree256K_32Threads             64.98ns    15.39M
-AlignedStlAllocatorFifoAllocFree256K_32Threads  2.2644%     2.87us   348.46K
-SlabAllocatorFifoAllocFree256K_32Threads        320.37%    20.28ns    49.30M
-*/
+// Multi-threaded results report total operations divided by wall-clock time.
+// Re-run benchmarks after changes to allocation or accounting semantics.
 
 namespace {
 
@@ -138,11 +121,9 @@ class SlabAllocatorBenchmark {
   template <size_t kConcurrency, typename Worker>
   int64_t runConcurrentFifoAllocFree(Worker&& worker) {
     static_assert(kConcurrency > 0);
-    using Clock = std::chrono::steady_clock;
 
     std::atomic<size_t> readyThreads{0};
     std::atomic<bool> start{false};
-    std::atomic<int64_t> totalThreadNanos{0};
     std::exception_ptr exception;
     std::mutex exceptionMutex;
     std::vector<std::thread> threads;
@@ -156,7 +137,6 @@ class SlabAllocatorBenchmark {
           std::this_thread::yield();
         }
 
-        const auto threadStart = Clock::now();
         try {
           worker(threadId, allocationsPerThread(threadId, kConcurrency));
         } catch (...) {
@@ -165,12 +145,6 @@ class SlabAllocatorBenchmark {
             exception = std::current_exception();
           }
         }
-        const auto threadEnd = Clock::now();
-        totalThreadNanos.fetch_add(
-            std::chrono::duration_cast<std::chrono::nanoseconds>(
-                threadEnd - threadStart)
-                .count(),
-            std::memory_order_relaxed);
       });
     }
 
@@ -178,35 +152,23 @@ class SlabAllocatorBenchmark {
       std::this_thread::yield();
     }
     suspender.dismiss();
-    const auto wallStart = Clock::now();
     start.store(true, std::memory_order_release);
 
     for (auto& thread : threads) {
       thread.join();
     }
-    const auto wallEnd = Clock::now();
     if (exception) {
       std::rethrow_exception(exception);
     }
 
-    const auto totalOps = FLAGS_slab_allocator_benchmark_count;
-    const auto wallNanos = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                               wallEnd - wallStart)
-                               .count();
-    const auto summedThreadNanos =
-        totalThreadNanos.load(std::memory_order_relaxed);
-    if (wallNanos <= 0 || summedThreadNanos <= 0) {
-      return totalOps;
-    }
-
-    const auto adjustedOps = static_cast<int64_t>(std::llround(
-        static_cast<double>(totalOps) * wallNanos / summedThreadNanos));
-    return std::max<int64_t>(1, adjustedOps);
+    return FLAGS_bolt_benchmark_slab_allocator_benchmark_count;
   }
 
   static int64_t allocationsPerThread(size_t threadId, size_t concurrency) {
-    const auto base = FLAGS_slab_allocator_benchmark_count / concurrency;
-    const auto remainder = FLAGS_slab_allocator_benchmark_count % concurrency;
+    const auto base =
+        FLAGS_bolt_benchmark_slab_allocator_benchmark_count / concurrency;
+    const auto remainder =
+        FLAGS_bolt_benchmark_slab_allocator_benchmark_count % concurrency;
     return base + (threadId < remainder ? 1 : 0);
   }
 

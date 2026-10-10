@@ -217,8 +217,9 @@ class RowContainer {
   struct RowContainerParam {
     std::shared_ptr<HashStringAllocator> hsaAllocator{nullptr};
     // Uses a MonotonicAllocator backed by a resource owned exclusively by this
-    // RowContainer. clear() releases the resource together with the current
-    // batch of rows and rebinds the allocator to a new resource.
+    // RowContainer. Strings are retained until clear() or destruction, even
+    // when individual rows are erased. clear() releases all string chunks
+    // and reuses the resource.
     bool useMonotonicStringAllocation{false};
   };
 
@@ -439,10 +440,6 @@ class RowContainer {
 
   const std::shared_ptr<HashStringAllocator>& stringAllocatorShared() {
     return stringAllocator_;
-  }
-
-  memory::SlabMemoryResource& slabMemoryResource() {
-    return *slabMemoryResource_;
   }
 
   memory::MonotonicMemoryResource* monotonicMemoryResource() {
@@ -1636,7 +1633,6 @@ class RowContainer {
   uint64_t numFreeRows_ = 0;
 
   memory::AllocationPool rows_;
-  std::unique_ptr<memory::SlabMemoryResource> slabMemoryResource_;
   std::unique_ptr<memory::MonotonicMemoryResource> monotonicMemoryResource_;
   std::optional<memory::MonotonicAllocator<char>> monotonicAllocator_;
   std::shared_ptr<HashStringAllocator> stringAllocator_;

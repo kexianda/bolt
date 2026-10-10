@@ -31,6 +31,7 @@
 #pragma once
 
 #include <memory>
+#include "bolt/common/memory/MemoryResource.h"
 #include "bolt/expression/ComplexViewTypes.h"
 #include "bolt/expression/Expr.h"
 #include "bolt/expression/VectorFunction.h"

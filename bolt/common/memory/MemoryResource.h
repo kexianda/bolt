@@ -37,9 +37,12 @@
 #include <utility>
 #include <vector>
 
-#include "bolt/common/memory/MemoryPool.h"
+#include "bolt/common/base/CheckedArithmetic.h"
 
 namespace bytedance::bolt::memory {
+
+class MemoryPool;
+class MemoryPoolImpl;
 
 template <typename Resource>
 concept MemoryResource = requires(
@@ -59,6 +62,9 @@ struct SlabAllocatorState {
   std::size_t reservedBytes{0};
 };
 
+/// Thread-confined resource. The pool must outlive the resource, and all
+/// allocations must be freed before its destruction. Small malloc allocations
+/// reserve pool capacity in 1 MiB batches without backend usage accounting.
 class SlabMemoryResource {
  public:
   explicit SlabMemoryResource(MemoryPool* pool = nullptr);
@@ -76,6 +82,8 @@ class SlabMemoryResource {
 
   MemoryPool* pool() const noexcept;
 
+  // Usage and reservation counters cover the batched small-allocation path.
+  // Delegated allocations are accounted directly by the pool.
   std::size_t freeBytes() const noexcept;
 
   std::size_t usedBytes() const noexcept;
@@ -94,6 +102,7 @@ class SlabMemoryResource {
 
 static_assert(MemoryResource<SlabMemoryResource>);
 
+/// The pool must outlive the resource; release() invalidates all allocations.
 class MonotonicMemoryResource {
   struct Chunk;
 
@@ -111,7 +120,7 @@ class MonotonicMemoryResource {
 
   ~MonotonicMemoryResource();
 
-  [[nodiscard]] void* allocate(std::size_t bytes, std::size_t alignment = 1);
+  [[nodiscard]] void* allocate(std::size_t bytes, std::size_t alignment);
 
   void deallocate(void* p, std::size_t bytes, std::size_t alignment);
 
@@ -121,18 +130,18 @@ class MonotonicMemoryResource {
 
   std::size_t reservedBytes() const noexcept;
 
- private:
-  void addChunk(std::size_t bytes, std::size_t alignment);
-
   void release() noexcept;
+
+ private:
+  void addChunk(std::size_t bytes);
 
   static constexpr std::size_t kLargeRequestThreshold = 64 << 10;
 
   MemoryPool* pool_{nullptr};
   std::size_t usedBytes_{0};
   std::size_t reservedBytes_{0};
-  void* currChunk_{nullptr};
-  std::size_t currChunkSize_{0};
+  const std::size_t initialBufferSize_;
+  std::size_t remaining_{0};
   void* curr_{nullptr};
   std::vector<Chunk> chunks_;
 };
@@ -143,7 +152,7 @@ static_assert(MemoryResource<MonotonicMemoryResource>);
 /// deallocations are intentionally ignored. The resource must outlive every
 /// container using the allocator, and releases all allocations together on
 /// destruction.
-template <typename T, std::size_t Alignment>
+template <typename T = std::byte, std::size_t Alignment = alignof(T)>
 requires(
     Alignment > 0 &&
     (Alignment & (Alignment - 1)) == 0) class MonotonicAllocator {
@@ -176,8 +185,7 @@ requires(
 
   MonotonicAllocator(const MonotonicAllocator& other) = default;
 
-  MonotonicAllocator(MonotonicAllocator&& other) noexcept
-      : resource_{std::exchange(other.resource_, nullptr)} {}
+  MonotonicAllocator(MonotonicAllocator&& other) noexcept = default;
 
   template <typename U>
   MonotonicAllocator(const MonotonicAllocator<U, Alignment>& other)
@@ -185,10 +193,7 @@ requires(
 
   MonotonicAllocator& operator=(const MonotonicAllocator& other) = default;
 
-  MonotonicAllocator& operator=(MonotonicAllocator&& other) noexcept {
-    resource_ = std::exchange(other.resource_, nullptr);
-    return *this;
-  }
+  MonotonicAllocator& operator=(MonotonicAllocator&& other) noexcept = default;
 
   friend void swap(MonotonicAllocator& lhs, MonotonicAllocator& rhs) noexcept {
     lhs.swap(rhs);
@@ -198,7 +203,7 @@ requires(
 
   [[nodiscard]] T* allocate(std::size_t n) {
     const auto bytes = allocationBytes(n);
-    return static_cast<T*>(resource_->allocate(bytes));
+    return static_cast<T*>(resource_->allocate(bytes, alignment()));
   }
 
   void deallocate(T* p, std::size_t n) {
@@ -232,7 +237,7 @@ requires(
   }
 
   std::size_t allocationBytes(std::size_t n) const {
-    const auto bytes = n * sizeof(T);
+    const auto bytes = checkedMultiply(n, sizeof(T));
     const auto allocationAlignment = alignment();
     const auto roundedBytes = checkedPlus(bytes, allocationAlignment - 1);
     return roundedBytes / allocationAlignment * allocationAlignment;
@@ -245,7 +250,7 @@ requires(
   MonotonicMemoryResource* resource_{nullptr};
 };
 
-template <typename T, std::size_t Alignment>
+template <typename T = std::byte, std::size_t Alignment = alignof(T)>
 requires(
     Alignment > 0 && (Alignment & (Alignment - 1)) == 0) class SlabAllocator {
  public:
@@ -279,8 +284,7 @@ requires(
 
   SlabAllocator(const SlabAllocator& other) = default;
 
-  SlabAllocator(SlabAllocator&& other) noexcept
-      : resource_{std::exchange(other.resource_, nullptr)} {}
+  SlabAllocator(SlabAllocator&& other) noexcept = default;
 
   template <typename U>
   SlabAllocator(const SlabAllocator<U, Alignment>& other)
@@ -288,10 +292,7 @@ requires(
 
   SlabAllocator& operator=(const SlabAllocator& other) = default;
 
-  SlabAllocator& operator=(SlabAllocator&& other) noexcept {
-    resource_ = std::exchange(other.resource_, nullptr);
-    return *this;
-  }
+  SlabAllocator& operator=(SlabAllocator&& other) noexcept = default;
 
   friend void swap(SlabAllocator& lhs, SlabAllocator& rhs) noexcept {
     lhs.swap(rhs);

@@ -32,6 +32,7 @@
 
 #include <folly/container/F14Set.h>
 #include <folly/hash/Checksum.h>
+#include "bolt/common/memory/MemoryResource.h"
 
 #include "bolt/common/base/GTestMacros.h"
 #include "bolt/dwio/common/DataBuffer.h"

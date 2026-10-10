@@ -876,6 +876,47 @@ TEST_P(OrderByTest, complexTypeKeys) {
   }
 }
 
+TEST_P(OrderByTest, stringAllocationModes) {
+  auto input = makeRowVector(
+      {makeFlatVector<std::string>(
+           {"zz long string key",
+            "aa long string key",
+            "bb long string key",
+            "cc long string key"}),
+       makeFlatVector<std::string>(
+           {"payload longer than inline 0",
+            "payload longer than inline 1",
+            "payload longer than inline 2",
+            "payload longer than inline 3"})});
+  // A second batch lets forced spilling run with rows already buffered.
+  std::vector<RowVectorPtr> inputs{input, input};
+  createDuckDbTable(inputs);
+  core::PlanNodeId orderById;
+  auto plan = PlanBuilder()
+                  .values(inputs)
+                  .orderBy({"c0"}, false, GetParam().useGPU)
+                  .capturePlanNodeId(orderById)
+                  .planNode();
+  for (auto mono : {"false", "true"}) {
+    for (auto jit : {"-1", "1"}) {
+      for (bool hybrid : {false, true}) {
+        SCOPED_TRACE(
+            fmt::format("mono={}, jit={}, hybrid={}", mono, jit, hybrid));
+        runTest(
+            plan,
+            orderById,
+            "SELECT * FROM tmp ORDER BY c0",
+            {0},
+            {{core::QueryConfig::kUseMonoAlloc, mono},
+             {core::QueryConfig::kJitLevel, jit},
+             {core::QueryConfig::kHybridSortEnabled, hybrid ? "true" : "false"},
+             {core::QueryConfig::kRowBasedSpillMode,
+              hybrid ? "" : core::QueryConfig::kDefaultRowBasedSpillMode}});
+      }
+    }
+  }
+}
+
 TEST_P(OrderByTest, nameDescAgeAsc) {
   std::vector<RowVectorPtr> vectors{
       makeRowVector(

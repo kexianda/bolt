@@ -31,6 +31,7 @@
 #pragma once
 
 #include <type_traits>
+#include "bolt/common/memory/MemoryResource.h"
 
 #include <folly/container/F14Map.h>
 #include <folly/hash/Hash.h>

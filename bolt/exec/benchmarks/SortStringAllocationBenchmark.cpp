@@ -28,7 +28,10 @@ using namespace bytedance::bolt::exec;
 using namespace bytedance::bolt::exec::test;
 using namespace bytedance::bolt::test;
 
-DEFINE_int32(sort_benchmark_rows, 1'000'000, "Number of input rows");
+DEFINE_int32(
+    bolt_benchmark_sort_benchmark_rows,
+    1'000'000,
+    "Number of input rows");
 
 namespace {
 class SortBenchmark : public VectorTestBase {
@@ -47,14 +50,14 @@ class SortBenchmark : public VectorTestBase {
     auto rowType = ROW(std::move(names), std::move(types));
     std::vector<VectorPtr> children;
     for (int i = 0; i < 4; ++i) {
-      children.push_back(
-          makeFlatVector<std::string>(FLAGS_sort_benchmark_rows, [i](auto row) {
+      children.push_back(makeFlatVector<std::string>(
+          FLAGS_bolt_benchmark_sort_benchmark_rows, [i](auto row) {
             return fmt::format("key{}_{}", i, (row * 7919 + i * 17) % 100000);
           }));
     }
     for (int i = 0; i < 50; ++i) {
       children.push_back(makeFlatVector<std::string>(
-          FLAGS_sort_benchmark_rows,
+          FLAGS_bolt_benchmark_sort_benchmark_rows,
           [i](auto row) { return fmt::format("payload{}_{}", i, row); }));
     }
     input_ = makeRowVector(rowType->names(), children);

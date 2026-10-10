@@ -24,6 +24,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include "bolt/common/memory/MemoryResource.h"
 
 #include <fmt/format.h>
 #include <folly/Benchmark.h>
@@ -36,15 +37,15 @@
 #include "bolt/vector/tests/utils/VectorMaker.h"
 
 DEFINE_int64(
-    row_container_store_string_payload_bytes,
+    bolt_benchmark_row_container_store_string_payload_bytes,
     256L << 20,
     "Approximate varchar payload bytes to store per benchmark iteration");
 DEFINE_int32(
-    row_container_store_string_input_rows,
+    bolt_benchmark_row_container_store_string_input_rows,
     8192,
     "Number of reusable input rows generated outside measured time");
 DEFINE_bool(
-    row_container_store_string_print_stats,
+    bolt_benchmark_row_container_store_string_print_stats,
     true,
     "Print rows, payload bytes and RowContainer memory stats");
 
@@ -104,7 +105,7 @@ int64_t averageStringLength(const StringLengthRange& range) {
 int64_t rowCountForTargetPayload(const StringLengthRange& range) {
   return std::max<int64_t>(
       1,
-      FLAGS_row_container_store_string_payload_bytes /
+      FLAGS_bolt_benchmark_row_container_store_string_payload_bytes /
           averageStringLength(range));
 }
 
@@ -114,7 +115,7 @@ RowVectorPtr makeInputBatch(
   return vectorMaker.rowVector(
       {"c0"},
       {vectorMaker.flatVector<StringView>(
-          FLAGS_row_container_store_string_input_rows,
+          FLAGS_bolt_benchmark_row_container_store_string_input_rows,
           [&](vector_size_t row) {
             const auto& values = constantStringsForRange(range);
             const auto& value = values[row % values.size()];
@@ -187,7 +188,7 @@ void printStats(
     const char* allocatorName,
     const StringLengthRange& range,
     const BenchmarkStats& stats) {
-  if (!FLAGS_row_container_store_string_print_stats) {
+  if (!FLAGS_bolt_benchmark_row_container_store_string_print_stats) {
     return;
   }
   fmt::print(

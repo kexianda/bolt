@@ -111,6 +111,9 @@ SortBuffer::SortBuffer(
     sortedSpillColumnTypes.emplace_back(input_->childAt(i));
     sortedSpillColumnNames.emplace_back(input->nameOf(i));
   }
+  const bool useMonoAlloc = operatorCtx
+      ? operatorCtx->driverCtx()->queryConfig().useMonoAlloc()
+      : core::QueryConfig({}).useMonoAlloc();
   hybridSortEnabled_ = hybridSortEnabled_ && !nonSortedColumnTypes.empty();
   if (hybridSortEnabled_) {
     std::vector<TypePtr> rowIdType = {BIGINT()};
@@ -119,7 +122,8 @@ SortBuffer::SortBuffer(
         rowIdType,
         true /*useListRowIndex*/,
         pool_,
-        RowContainer::RowContainerParam{nullptr, true});
+        RowContainer::RowContainerParam{
+            .useMonotonicStringAllocation = useMonoAlloc});
     hybridData_ = std::make_unique<HybridContainer>(
         sortedColumnTypes, nonSortedColumnTypes, data_.get());
     // Set allContainer
@@ -137,7 +141,8 @@ SortBuffer::SortBuffer(
         nonSortedColumnTypes,
         true /*useListRowIndex*/,
         pool_,
-        RowContainer::RowContainerParam{nullptr, true});
+        RowContainer::RowContainerParam{
+            .useMonotonicStringAllocation = useMonoAlloc});
   }
   spillerStoreType_ =
       ROW(std::move(sortedSpillColumnNames), std::move(sortedSpillColumnTypes));

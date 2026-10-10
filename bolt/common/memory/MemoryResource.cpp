@@ -31,8 +31,10 @@
 #include "bolt/common/memory/MemoryResource.h"
 
 #include <algorithm>
+
 #include <cstdlib>
 #include <new>
+#include "bolt/common/memory/MemoryPool.h"
 
 namespace bytedance::bolt::memory {
 namespace {
@@ -173,9 +175,10 @@ MemoryPoolImpl* SlabMemoryResource::poolImpl() const {
 
 MonotonicMemoryResource::MonotonicMemoryResource(
     MemoryPool* pool,
-    std::size_t /*initialBufferSize*/)
-    : pool_{pool} {
+    std::size_t initialBufferSize)
+    : pool_{pool}, initialBufferSize_{initialBufferSize} {
   BOLT_CHECK_NOT_NULL(pool);
+  BOLT_CHECK_GT(initialBufferSize, 0);
 }
 
 MonotonicMemoryResource::MonotonicMemoryResource(
@@ -189,22 +192,20 @@ MonotonicMemoryResource::~MonotonicMemoryResource() {
 
 void* MonotonicMemoryResource::allocate(
     std::size_t bytes,
-    std::size_t /*alignment*/) {
-  const auto allocationBytes = bytes;
-  auto* p = static_cast<std::byte*>(curr_);
-  if (currChunk_ == nullptr ||
-      p + allocationBytes >=
-          static_cast<std::byte*>(currChunk_) + currChunkSize_) [[unlikely]] {
-    addChunk(allocationBytes, 1);
-    p = static_cast<std::byte*>(curr_);
+    std::size_t alignment) {
+  bytes = std::max<std::size_t>(bytes, 1);
+  const auto misalignment =
+      reinterpret_cast<std::uintptr_t>(curr_) & (alignment - 1);
+  auto padding = (alignment - misalignment) & (alignment - 1);
+  if (curr_ == nullptr || padding > remaining_ ||
+      bytes > remaining_ - padding) {
+    addChunk(bytes);
+    padding = 0;
   }
-  BOLT_DCHECK_LE(
-      reinterpret_cast<std::uintptr_t>(p + allocationBytes),
-      reinterpret_cast<std::uintptr_t>(
-          static_cast<std::byte*>(currChunk_) + currChunkSize_));
-  BOLT_DCHECK_NOT_NULL(currChunk_);
-  curr_ = p + allocationBytes;
-  usedBytes_ += allocationBytes;
+  auto* p = static_cast<std::byte*>(curr_) + padding;
+  curr_ = p + bytes;
+  remaining_ -= padding + bytes;
+  usedBytes_ += padding + bytes;
   return p;
 }
 
@@ -225,9 +226,7 @@ std::size_t MonotonicMemoryResource::reservedBytes() const noexcept {
   return reservedBytes_;
 }
 
-void MonotonicMemoryResource::addChunk(
-    std::size_t bytes,
-    std::size_t alignment) {
+void MonotonicMemoryResource::addChunk(std::size_t bytes) {
   chunks_.emplace_back();
   auto& chunk = chunks_.back();
   try {
@@ -240,30 +239,24 @@ void MonotonicMemoryResource::addChunk(
       chunk.data = chunk.allocation.data();
       chunk.size = chunk.allocation.size();
       chunk.contiguous = true;
-    } else if (bytes >= kLargeRequestThreshold) {
-      // when the used bytes is limited(<256K), but requested bytes > 64K,
-      // allocate a chuck for this request
-      chunk.alignment =
-          std::max<std::size_t>(alignment, MemoryAllocator::kMinAlignment);
-      chunk.size = chunk.alignment == MemoryAllocator::kMinAlignment
-          ? bytes
-          : bits::roundUp(bytes, chunk.alignment);
-      chunk.data = pool_->allocate(chunk.size, chunk.alignment);
     } else {
-      // at the beginning, allocate a chuck that is not very big for small
-      // requests to avoid memory waste.
-      chunk.alignment =
-          std::max<std::size_t>(alignment, MemoryAllocator::kMinAlignment);
-      chunk.size = bits::roundUp(
-          std::max(bytes, kLargeRequestThreshold), chunk.alignment);
+      chunk.alignment = pool_->alignment();
+      BOLT_CHECK_GT(chunk.alignment, 0);
+      BOLT_CHECK_EQ(chunk.alignment & (chunk.alignment - 1), 0);
+      const auto rounded = checkedPlus(
+          std::max({bytes, initialBufferSize_, std::size_t{1}}),
+          chunk.alignment - 1);
+      BOLT_CHECK_LE(
+          rounded,
+          static_cast<std::size_t>(std::numeric_limits<int64_t>::max()));
+      chunk.size = rounded & ~(chunk.alignment - 1);
       chunk.data = pool_->allocate(chunk.size, chunk.alignment);
     }
   } catch (...) {
     chunks_.pop_back();
     throw;
   }
-  currChunk_ = chunk.data;
-  currChunkSize_ = chunk.size;
+  remaining_ = chunk.size;
   curr_ = chunk.data;
   reservedBytes_ += chunk.size;
 }
@@ -277,8 +270,7 @@ void MonotonicMemoryResource::release() noexcept {
     }
   }
   chunks_.clear();
-  currChunk_ = nullptr;
-  currChunkSize_ = 0;
+  remaining_ = 0;
   curr_ = nullptr;
   usedBytes_ = 0;
   reservedBytes_ = 0;

@@ -25,6 +25,7 @@
 #include <numeric>
 #include <string>
 #include <vector>
+#include "bolt/common/memory/MemoryResource.h"
 
 #include <fmt/format.h>
 #include <folly/Benchmark.h>
@@ -38,25 +39,25 @@
 #include "bolt/vector/tests/utils/VectorMaker.h"
 
 DEFINE_int64(
-    row_container_varchar_orderby_payload_bytes,
+    bolt_benchmark_row_container_varchar_orderby_payload_bytes,
     2L << 30,
     "Approximate varchar payload bytes stored in RowContainer per benchmark "
     "iteration");
 DEFINE_int64(
-    row_container_varchar_orderby_batch_bytes,
+    bolt_benchmark_row_container_varchar_orderby_batch_bytes,
     128L << 20,
     "Approximate max input batch varchar payload bytes. Input batches are "
     "generated outside measured time.");
 DEFINE_int32(
-    row_container_varchar_orderby_max_batch_rows,
+    bolt_benchmark_row_container_varchar_orderby_max_batch_rows,
     4096,
     "Max input batch rows");
 DEFINE_bool(
-    row_container_varchar_orderby_print_stats,
+    bolt_benchmark_row_container_varchar_orderby_print_stats,
     false,
     "Print per-iteration row count, payload bytes and memory stats");
 DEFINE_string(
-    row_container_varchar_orderby_cpu_profile,
+    bolt_benchmark_row_container_varchar_orderby_cpu_profile,
     "",
     "Write a gperftools CPU profile to this path when set");
 
@@ -132,19 +133,20 @@ int64_t averageStringLength(const StringLengthRange& range) {
 int64_t rowCountForTargetPayload(const StringLengthRange& range) {
   return std::max<int64_t>(
       1,
-      FLAGS_row_container_varchar_orderby_payload_bytes /
+      FLAGS_bolt_benchmark_row_container_varchar_orderby_payload_bytes /
           (kNumColumns * averageStringLength(range)));
 }
 
 int32_t batchRowsForRange(const StringLengthRange& range, int64_t rowsLeft) {
   const auto rowsByBytes = std::max<int64_t>(
       1,
-      FLAGS_row_container_varchar_orderby_batch_bytes /
+      FLAGS_bolt_benchmark_row_container_varchar_orderby_batch_bytes /
           (kNumColumns * averageStringLength(range)));
   return static_cast<int32_t>(std::min<int64_t>(
       rowsLeft,
       std::min<int64_t>(
-          FLAGS_row_container_varchar_orderby_max_batch_rows, rowsByBytes)));
+          FLAGS_bolt_benchmark_row_container_varchar_orderby_max_batch_rows,
+          rowsByBytes)));
 }
 
 RowVectorPtr makeBatch(
@@ -303,7 +305,7 @@ void printStats(
     const char* allocatorName,
     const StringLengthRange& range,
     const BenchmarkStats& stats) {
-  if (!FLAGS_row_container_varchar_orderby_print_stats) {
+  if (!FLAGS_bolt_benchmark_row_container_varchar_orderby_print_stats) {
     return;
   }
   fmt::print(
@@ -368,14 +370,19 @@ BENCHMARK_RELATIVE_NAMED_PARAM(
 
 int main(int argc, char** argv) {
   folly::Init init{&argc, &argv};
-  if (!FLAGS_row_container_varchar_orderby_cpu_profile.empty() &&
+#ifdef BOLT_BENCHMARK_HAS_PROFILER
+  if (!FLAGS_bolt_benchmark_row_container_varchar_orderby_cpu_profile.empty() &&
       BoltProfilerIsAvailable()) {
-    BoltProfilerStart(FLAGS_row_container_varchar_orderby_cpu_profile.c_str());
+    BoltProfilerStart(
+        FLAGS_bolt_benchmark_row_container_varchar_orderby_cpu_profile.c_str());
   }
+#endif
   folly::runBenchmarks();
-  if (!FLAGS_row_container_varchar_orderby_cpu_profile.empty() &&
+#ifdef BOLT_BENCHMARK_HAS_PROFILER
+  if (!FLAGS_bolt_benchmark_row_container_varchar_orderby_cpu_profile.empty() &&
       BoltProfilerIsAvailable()) {
     BoltProfilerStop();
   }
+#endif
   return 0;
 }

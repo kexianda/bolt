@@ -18,6 +18,7 @@
 
 /// Separated from implementation details to reduce compiling time
 
+#include "bolt/common/memory/MemoryResource.h"
 #include "bolt/exec/HybridSorter.h"
 #include "bolt/exec/RowContainer.h"
 #include "common/base/CompareFlags.h"

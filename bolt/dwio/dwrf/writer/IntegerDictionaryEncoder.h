@@ -33,6 +33,7 @@
 #include <boost/sort/pdqsort/pdqsort.hpp>
 #include <folly/container/F14Set.h>
 #include "bolt/common/base/GTestMacros.h"
+#include "bolt/common/memory/MemoryResource.h"
 #include "bolt/dwio/common/DataBuffer.h"
 #include "bolt/dwio/dwrf/common/IntEncoder.h"
 #include "bolt/dwio/dwrf/writer/DictionaryEncodingUtils.h"

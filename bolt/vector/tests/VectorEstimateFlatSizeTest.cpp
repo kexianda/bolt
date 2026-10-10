@@ -33,8 +33,8 @@
 #include "bolt/vector/tests/utils/VectorTestBase.h"
 using namespace bytedance::bolt;
 
-class DISABLED_VectorEstimateFlatSizeTest : public testing::Test,
-                                            public test::VectorTestBase {
+class VectorEstimateFlatSizeTest : public testing::Test,
+                                   public test::VectorTestBase {
  protected:
   using test::VectorTestBase::makeArrayVector;
 
@@ -86,11 +86,11 @@ StringView shortStringAt(vector_size_t row) {
 };
 } // namespace
 
-TEST_F(DISABLED_VectorEstimateFlatSizeTest, fixedWidthNoNulls) {
+TEST_F(VectorEstimateFlatSizeTest, fixedWidthNoNulls) {
   // Fixed width vectors without nulls.
   VectorPtr flat = makeFlatVector<int16_t>(1'000, int16At);
-  EXPECT_GE(2976, flat->retainedSize());
-  EXPECT_GE(2976, flat->estimateFlatSize());
+  EXPECT_EQ(2976, flat->retainedSize());
+  EXPECT_EQ(2976, flat->estimateFlatSize());
 
   flat = makeFlatVector<int32_t>(1'000, int32At);
   EXPECT_EQ(4000, flat->retainedSize());
@@ -113,7 +113,7 @@ TEST_F(DISABLED_VectorEstimateFlatSizeTest, fixedWidthNoNulls) {
   EXPECT_EQ(160, flat->estimateFlatSize());
 }
 
-TEST_F(DISABLED_VectorEstimateFlatSizeTest, fixedWidthWithNulls) {
+TEST_F(VectorEstimateFlatSizeTest, fixedWidthWithNulls) {
   // Fixed width vectors with nulls. Nulls buffer adds a few bytes.
   VectorPtr flat = makeFlatVector<int16_t>(1'000, int16At, nullEvery(5));
   EXPECT_EQ(3136, flat->retainedSize());
@@ -140,7 +140,7 @@ TEST_F(DISABLED_VectorEstimateFlatSizeTest, fixedWidthWithNulls) {
   EXPECT_EQ(320, flat->estimateFlatSize());
 }
 
-TEST_F(DISABLED_VectorEstimateFlatSizeTest, dictionaryFixedWidthNoExtraNulls) {
+TEST_F(VectorEstimateFlatSizeTest, dictionaryFixedWidthNoExtraNulls) {
   // Dictionary vector. Indices buffer adds a few bytes.
   auto indices = makeIndices(100, [](auto row) { return row * 2; });
 
@@ -214,7 +214,7 @@ TEST_F(DISABLED_VectorEstimateFlatSizeTest, dictionaryFixedWidthNoExtraNulls) {
   EXPECT_EQ(32, flatten(dict)->retainedSize());
 }
 
-TEST_F(DISABLED_VectorEstimateFlatSizeTest, dictionaryFixedWidthExtraNulls) {
+TEST_F(VectorEstimateFlatSizeTest, dictionaryFixedWidthExtraNulls) {
   // Dictionary vector with extra nulls.
   auto indices = makeIndices(100, [](auto row) { return row * 2; });
 
@@ -283,7 +283,7 @@ TEST_F(DISABLED_VectorEstimateFlatSizeTest, dictionaryFixedWidthExtraNulls) {
   EXPECT_EQ(960, flatten(dict)->retainedSize());
 }
 
-TEST_F(DISABLED_VectorEstimateFlatSizeTest, flatStrings) {
+TEST_F(VectorEstimateFlatSizeTest, flatStrings) {
   // Inlined strings.
   auto flat = makeFlatVector<StringView>(1'000, shortStringAt);
   EXPECT_EQ(16288, flat->retainedSize());
@@ -307,7 +307,7 @@ TEST_F(DISABLED_VectorEstimateFlatSizeTest, flatStrings) {
   EXPECT_EQ(65504, flat->estimateFlatSize());
 }
 
-TEST_F(DISABLED_VectorEstimateFlatSizeTest, dictionaryShortStrings) {
+TEST_F(VectorEstimateFlatSizeTest, dictionaryShortStrings) {
   // Inlined strings.
   auto indices = makeIndices(100, [](auto row) { return row * 2; });
 
@@ -328,7 +328,7 @@ TEST_F(DISABLED_VectorEstimateFlatSizeTest, dictionaryShortStrings) {
   EXPECT_EQ(1984, flatten(dict)->retainedSize());
 }
 
-TEST_F(DISABLED_VectorEstimateFlatSizeTest, dictionaryLongStrings) {
+TEST_F(VectorEstimateFlatSizeTest, dictionaryLongStrings) {
   // Non-inlined strings.
   auto indices = makeIndices(100, [](auto row) { return row * 2; });
 
@@ -361,7 +361,7 @@ TEST_F(DISABLED_VectorEstimateFlatSizeTest, dictionaryLongStrings) {
   EXPECT_EQ(51040, flatten(dict)->retainedSize());
 }
 
-TEST_F(DISABLED_VectorEstimateFlatSizeTest, arrayOfInts) {
+TEST_F(VectorEstimateFlatSizeTest, arrayOfInts) {
   // Flat array.
   auto array = makeArrayVector<int32_t>(
       1'000,
@@ -396,7 +396,7 @@ TEST_F(DISABLED_VectorEstimateFlatSizeTest, arrayOfInts) {
   EXPECT_EQ(1248, flatten(array)->estimateFlatSize());
 }
 
-TEST_F(DISABLED_VectorEstimateFlatSizeTest, arrayOfShortStrings) {
+TEST_F(VectorEstimateFlatSizeTest, arrayOfShortStrings) {
   // Flat array.
   auto array = makeArrayVector<StringView>(
       1'000,
@@ -431,7 +431,7 @@ TEST_F(DISABLED_VectorEstimateFlatSizeTest, arrayOfShortStrings) {
   EXPECT_EQ(2432, flatten(array)->estimateFlatSize());
 }
 
-TEST_F(DISABLED_VectorEstimateFlatSizeTest, arrayOfLongStrings) {
+TEST_F(VectorEstimateFlatSizeTest, arrayOfLongStrings) {
   // Flat array.
   auto longStringAt = [&](auto row, auto index) {
     return StringView(longStrings_[(row + index) % 3]);
@@ -627,7 +627,7 @@ TEST_F(VectorEstimateFlatSizeTest, copyRangesReusesOnlyFullIdentityFlatStats) {
   EXPECT_FALSE(target->stringStats().has_value());
 }
 
-TEST_F(DISABLED_VectorEstimateFlatSizeTest, mapOfInts) {
+TEST_F(VectorEstimateFlatSizeTest, mapOfInts) {
   // Flat map.
   auto map = makeMapVector<int32_t, double>(
       1'000,
@@ -672,7 +672,7 @@ TEST_F(DISABLED_VectorEstimateFlatSizeTest, mapOfInts) {
   EXPECT_EQ(2175, flatten(map)->estimateFlatSize());
 }
 
-TEST_F(DISABLED_VectorEstimateFlatSizeTest, structs) {
+TEST_F(VectorEstimateFlatSizeTest, structs) {
   // Flat struct.
   auto row = makeRowVector({
       makeFlatVector<int32_t>(1'000, int32At),
@@ -719,9 +719,7 @@ TEST_F(DISABLED_VectorEstimateFlatSizeTest, structs) {
 // flat source (short inline strings, no toSourceRow). After the second copy,
 // stringStats_ must be cleared because the flat-to-flat identity path does
 // not compute per-element stats.
-TEST_F(
-    DISABLED_VectorEstimateFlatSizeTest,
-    copyFromFlatResetsStaleStringStats) {
+TEST_F(VectorEstimateFlatSizeTest, copyFromFlatResetsStaleStringStats) {
   const vector_size_t kSize = 100;
 
   auto target =
@@ -753,9 +751,7 @@ TEST_F(
 // Same scenario as above, but the second copy uses toSourceRow (remapped
 // copy from a flat source). The remapped path computes per-element stats,
 // so stringStats_ should be set to accurate values for the copied rows.
-TEST_F(
-    DISABLED_VectorEstimateFlatSizeTest,
-    remappedCopyFromFlatClearsStaleStats) {
+TEST_F(VectorEstimateFlatSizeTest, remappedCopyFromFlatClearsStaleStats) {
   const vector_size_t kSize = 100;
 
   auto target =

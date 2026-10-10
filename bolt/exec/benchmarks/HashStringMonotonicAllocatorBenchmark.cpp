@@ -41,7 +41,7 @@ MonotonicMemoryResourceAllocateNoFree           1287.9%   482.60ms      2.07
 #include "bolt/common/memory/MemoryResource.h"
 
 DEFINE_int64(
-    allocator_compare_payload_bytes,
+    bolt_benchmark_allocator_compare_payload_bytes,
     1L << 30,
     "Total requested payload bytes to allocate");
 
@@ -125,7 +125,8 @@ class AllocatorCompareBenchmark {
 
     int64_t requestedBytes = 0;
     int64_t allocations = 0;
-    for (int64_t i = 0; requestedBytes < FLAGS_allocator_compare_payload_bytes;
+    for (int64_t i = 0;
+         requestedBytes < FLAGS_bolt_benchmark_allocator_compare_payload_bytes;
          ++i) {
       const auto size = nextSize(i);
       auto* header = allocator.allocate(size);
@@ -149,7 +150,8 @@ class AllocatorCompareBenchmark {
 
     int64_t requestedBytes = 0;
     int64_t allocations = 0;
-    for (int64_t i = 0; requestedBytes < FLAGS_allocator_compare_payload_bytes;
+    for (int64_t i = 0;
+         requestedBytes < FLAGS_bolt_benchmark_allocator_compare_payload_bytes;
          ++i) {
       const auto size = nextSize(i);
       auto* p = allocator.allocate(size);

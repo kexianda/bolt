@@ -1739,7 +1739,10 @@ TEST_F(RowContainerTest, ownsAndResetsMonotonicMemoryResource) {
   first->store(decoded, 0, row, 0);
   EXPECT_GT(first->monotonicMemoryResource()->usedBytes(), 0);
 
+  auto* resource = first->monotonicMemoryResource();
   first->clear();
+  EXPECT_EQ(first->monotonicMemoryResource(), resource);
+  EXPECT_EQ(resource->reservedBytes(), 0);
   EXPECT_EQ(first->monotonicMemoryResource()->usedBytes(), 0);
 
   row = first->newRow();

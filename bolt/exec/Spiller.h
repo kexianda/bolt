@@ -32,6 +32,7 @@
 
 #include "bolt/common/base/SpillConfig.h"
 #include "bolt/common/compression/Compression.h"
+#include "bolt/common/memory/MemoryResource.h"
 #include "bolt/exec/HashBitRange.h"
 #include "bolt/exec/RowContainer.h"
 #include "bolt/exec/Spill.h"

@@ -39,6 +39,7 @@
 #include <vector>
 #include "bolt/common/base/RuntimeMetrics.h"
 #include "bolt/common/file/FileSystems.h"
+#include "bolt/common/memory/MemoryResource.h"
 #include "bolt/exec/ContainerRow2RowSerde.h"
 namespace bytedance::bolt::exec {
 namespace {

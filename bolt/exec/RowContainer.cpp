@@ -31,6 +31,7 @@
 #include <cstring>
 #include <sstream>
 #include <utility>
+#include "bolt/common/memory/MemoryResource.h"
 
 #include "bolt/exec/RowContainer.h"
 #include "bolt/type/HugeInt.h"
@@ -215,7 +216,6 @@ RowContainer::RowContainer(
       hasNormalizedKeys_(hasNormalizedKeys),
       useListRowIndex_(useListRowIndex),
       rows_(pool),
-      slabMemoryResource_(std::make_unique<memory::SlabMemoryResource>(pool)),
       monotonicMemoryResource_(
           rowContainerParam.useMonotonicStringAllocation
               ? std::make_unique<memory::MonotonicMemoryResource>(pool)
@@ -499,7 +499,10 @@ void RowContainer::eraseRowsSkippingKeys(folly::Range<char**> rows) {
         for (auto row : rows) {
           if (!isNullAt(row, column.nullByte(), column.nullMask())) {
             StringView view = valueAt<StringView>(row, column.offset());
-            if (!view.isInline() && !useMonotonicStringAllocation_) {
+            const bool monotonicString = useMonotonicStringAllocation_ &&
+                (typeKinds_[i] == TypeKind::VARCHAR ||
+                 typeKinds_[i] == TypeKind::VARBINARY);
+            if (!view.isInline() && !monotonicString) {
               stringAllocator_->free(
                   HashStringAllocator::headerOf(view.data()));
             }
@@ -1040,6 +1043,7 @@ void RowContainer::hashTyped(
 
   auto offset = column.offset();
   auto numRows = rows.size();
+  std::string storage;
   for (int32_t i = 0; i < numRows; ++i) {
     char* row = rows[i];
     if (nullable && isNullAt(row, column)) {
@@ -1049,7 +1053,6 @@ void RowContainer::hashTyped(
       uint64_t hash;
       if (Kind == TypeKind::VARCHAR || Kind == TypeKind::VARBINARY) {
         auto value = valueAt<StringView>(row, offset);
-        std::string storage;
         if (!useMonotonicStringAllocation_) {
           value = HashStringAllocator::contiguousString(value, storage);
         }
@@ -1126,10 +1129,7 @@ void RowContainer::clear() {
   numFreeRows_ = 0;
   firstFreeRow_ = nullptr;
   if (useMonotonicStringAllocation_) {
-    monotonicAllocator_.reset();
-    monotonicMemoryResource_ =
-        std::make_unique<memory::MonotonicMemoryResource>(pool());
-    monotonicAllocator_.emplace(*monotonicMemoryResource_);
+    monotonicMemoryResource_->release();
   }
 }
 

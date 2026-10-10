@@ -67,9 +67,7 @@ struct StringView {
 
   StringView() {
     static_assert(sizeof(StringView) == 16);
-    auto* words = reinterpret_cast<int64_t*>(this);
-    words[0] = 0;
-    words[1] = 0;
+    memset(this, 0, sizeof(StringView));
   }
 
   StringView(const char* data, int32_t len) {
@@ -84,11 +82,7 @@ struct StringView {
       // Zero the inline part.
       // this makes sure that inline strings can be compared for equality with 2
       // int64 compares.
-      if constexpr (kPrefixSize == 4) {
-        *reinterpret_cast<int32_t*>(prefix_) = 0;
-      } else {
-        memset(prefix_, 0, kPrefixSize);
-      }
+      memset(prefix_, 0, kPrefixSize);
       if (size_ == 0) {
         return;
       }
@@ -98,12 +92,7 @@ struct StringView {
       memcpy(prefix_, data, size_);
     } else {
       // large string: store pointer
-      if constexpr (kPrefixSize == 4) {
-        *reinterpret_cast<int32_t*>(prefix_) =
-            *reinterpret_cast<const int32_t*>(data);
-      } else {
-        memcpy(prefix_, data, kPrefixSize);
-      }
+      memcpy(prefix_, data, kPrefixSize);
       value_.data = data;
     }
   }

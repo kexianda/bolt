@@ -88,7 +88,7 @@ update_conan_remote() {
   local remote_index="$3"
   local remote_type="${4:-}"
 
-  pip install --upgrade conan==2.32.0
+  pip install 'conan>=2.32.0'
 
   echo "⚙️  Configuring remote '${remote_name}'..."
   conan remote remove "${remote_name}" > /dev/null 2>&1 || true

@@ -308,7 +308,8 @@ def run_command(command: list[str]) -> str:
 
 def resolve_executable(command: str) -> str:
     if "/" in command:
-        executable = Path(command).expanduser().resolve()
+        # Preserve argv[0]: clang++ may symlink to clang but selects the C++ driver.
+        executable = Path(command).expanduser().absolute()
         if not executable.is_file() or not os.access(executable, os.X_OK):
             raise RuntimeError(
                 f"Required compiler not found or not executable: {command}"
@@ -891,7 +892,7 @@ def update_selected_profile(
             **defaults,
             "compiler": compiler_info.family,
             "compiler.version": compiler_info.version,
-            "compiler.cppstd": "gnu20",
+            "compiler.cppstd": "gnu23",
             "compiler.libcxx": compiler_libcxx,
         },
     )
@@ -923,7 +924,7 @@ def update_selected_profile(
     summary = (
         f"✅ Profile '{profile_name}' configured for "
         f"{compiler_info.family} {compiler_info.version}, compiler.libcxx={compiler_libcxx}, "
-        "compiler.cppstd=gnu20, absolute compiler paths, "
+        "compiler.cppstd=gnu23, absolute compiler paths, "
         f"CMake {CMAKE_VERSION}, "
         f"os.libc={libc if libc is not None else 'auto-detect'}, "
         f"os.libc_version={libc_version if libc_version is not None else 'auto-detect'}"

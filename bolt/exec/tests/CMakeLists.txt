@@ -119,6 +119,7 @@ endif()
 
 add_executable(
   bolt_exec_aggregation_test
+  AggBasic.cpp
   AggregationTest.cpp
   HashTableSimdAggregationTest.cpp
 )

@@ -547,11 +547,19 @@ if(BOLT_ENABLE_FILE_PREFIX_MAP)
       "-ffile-prefix-map=${CMAKE_SOURCE_DIR}=${BOLT_MAPPED_SOURCE_PREFIX}"
     )
 
-    # GCC's -ffile-prefix-map covers all individual -f*-prefix-map options.
-    # Clang uses a separate option for coverage metadata.
-    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    # Keep the debug compilation directory at the mapped source root so that
+    # relative source paths are not resolved from the mapped build directory.
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
       list(
         APPEND BOLT_FILE_PREFIX_MAP_OPTIONS
+        "-fdebug-prefix-map=${CMAKE_BINARY_DIR}=${BOLT_MAPPED_SOURCE_PREFIX}"
+      )
+    elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+      # Clang supports setting the compilation directory directly and uses a
+      # separate option for coverage metadata.
+      list(
+        APPEND BOLT_FILE_PREFIX_MAP_OPTIONS
+        "-fdebug-compilation-dir=${BOLT_MAPPED_SOURCE_PREFIX}"
         "-fcoverage-prefix-map=${CMAKE_BINARY_DIR}=${BOLT_MAPPED_BINARY_PREFIX}"
         "-fcoverage-prefix-map=${CMAKE_SOURCE_DIR}=${BOLT_MAPPED_SOURCE_PREFIX}"
       )

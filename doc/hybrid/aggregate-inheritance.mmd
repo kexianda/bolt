@@ -1,0 +1,320 @@
+%% Copyright (c) ByteDance Ltd. and/or its affiliates.
+%% SPDX-License-Identifier: Apache-2.0
+%% Source: hybrid @ 290ea2c1; production class declarations only.
+%% Template arguments omitted; partial specializations folded into primary classes.
+%% Aliases, test classes, accumulators and non-inheriting UDAFs are excluded.
+classDiagram
+direction LR
+class Aggregate["exec::Aggregate"]
+<<abstract>> Aggregate
+%% bolt/exec/AggregateCompanionAdapter.h:38
+class n11["Exec / AggregateCompanionFunctionBase / AggregateCompanionAdapter.h"]
+Aggregate <|-- n11
+%% bolt/exec/AggregateCompanionAdapter.h:120
+class n12["Exec / PartialFunction / AggregateCompanionAdapter.h"]
+n11 <|-- n12
+%% bolt/exec/AggregateCompanionAdapter.h:131
+class n13["Exec / MergeFunction / AggregateCompanionAdapter.h"]
+n11 <|-- n13
+%% bolt/exec/AggregateCompanionAdapter.h:160
+class n14["Exec / MergeExtractFunction / AggregateCompanionAdapter.h"]
+n13 <|-- n14
+%% bolt/exec/SimpleAggregateAdapter.h:57
+class n31["Exec / SimpleAggregateAdapter / SimpleAggregateAdapter.h"]
+Aggregate <|-- n31
+%% bolt/functions/colocate/client/ColocateAggregate.cpp:33
+class n10["Colocate / ColocateAggregate / ColocateAggregate.cpp"]
+Aggregate <|-- n10
+%% bolt/functions/lib/aggregates/AverageAggregateBase.h:92
+class n25["Shared / AverageAggregateBase / AverageAggregateBase.h"]
+Aggregate <|-- n25
+%% bolt/functions/lib/aggregates/AverageAggregateBase.h:470
+class n26["Shared / DecimalAverageAggregateBase / AverageAggregateBase.h"]
+n24 <|-- n26
+%% bolt/functions/lib/aggregates/BitwiseAggregateBase.h:39
+class n22["Shared / BitwiseAggregateBase / BitwiseAggregateBase.h"]
+n21 <|-- n22
+%% bolt/functions/lib/aggregates/CentralMomentsAggregatesBase.h:225
+class n30["Shared / CentralMomentsAggregatesBase / CentralMomentsAggregatesBase.h"]
+Aggregate <|-- n30
+%% bolt/functions/lib/aggregates/CovarianceAggregatesBase.h:233
+class n27["Shared / CovarianceAggregate / CovarianceAggregatesBase.h"]
+Aggregate <|-- n27
+%% bolt/functions/lib/aggregates/DecimalAggregate.h:85
+class n24["Shared / DecimalAggregate / DecimalAggregate.h"]
+Aggregate <|-- n24
+%% bolt/functions/lib/aggregates/MinMaxByAggregatesBase.h:106
+class n23["Shared / MinMaxByAggregateBase / MinMaxByAggregatesBase.h"]
+Aggregate <|-- n23
+%% bolt/functions/lib/aggregates/SetBaseAggregate.h:42
+class n28["Shared / SetBaseAggregate / SetBaseAggregate.h"]
+Aggregate <|-- n28
+%% bolt/functions/lib/aggregates/SetBaseAggregate.h:236
+class n29["Shared / SetAggAggregate / SetBaseAggregate.h"]
+n28 <|-- n29
+%% bolt/functions/lib/aggregates/SimpleNumericAggregate.h:41
+class n21["Shared / SimpleNumericAggregate / SimpleNumericAggregate.h"]
+Aggregate <|-- n21
+%% bolt/functions/lib/aggregates/SumAggregateBase.h:46
+class n19["Shared / SumAggregateBase / SumAggregateBase.h"]
+n21 <|-- n19
+%% bolt/functions/lib/aggregates/SumAggregateBase.h:212
+class n20["Shared / DecimalSumAggregate / SumAggregateBase.h"]
+n24 <|-- n20
+%% bolt/functions/prestosql/aggregates/ApproxDistinctAggregate.cpp:143
+class n77["Presto / ApproxDistinctAggregate / ApproxDistinctAggregate.cpp"]
+Aggregate <|-- n77
+%% bolt/functions/prestosql/aggregates/ApproxMostFrequentAggregate.cpp:80
+class n96["Presto / ApproxMostFrequentAggregate / ApproxMostFrequentAggregate.cpp"]
+Aggregate <|-- n96
+%% bolt/functions/prestosql/aggregates/ApproxPercentileAggregate.h:145
+class n93["Presto / ApproxPercentileAggregate / ApproxPercentileAggregate.h"]
+Aggregate <|-- n93
+%% bolt/functions/prestosql/aggregates/ArbitraryAggregate.cpp:44
+class n90["Presto / ArbitraryAggregate / ArbitraryAggregate.cpp"]
+n21 <|-- n90
+%% bolt/functions/prestosql/aggregates/ArbitraryAggregate.cpp:165
+class n91["Presto / NonNumericArbitrary / ArbitraryAggregate.cpp"]
+Aggregate <|-- n91
+%% bolt/functions/prestosql/aggregates/ArrayAdditionAggregate.cpp:37
+class n35["Presto / ArrayAdditionAggregate / ArrayAdditionAggregate.cpp"]
+Aggregate <|-- n35
+%% bolt/functions/prestosql/aggregates/ArrayAggAggregate.cpp:44
+class n34["Presto / ArrayAggAggregate / ArrayAggAggregate.cpp"]
+Aggregate <|-- n34
+%% bolt/functions/prestosql/aggregates/ArrayCountAggregate.cpp:35
+class n94["Presto / ArrayCountAggregate / ArrayCountAggregate.cpp"]
+Aggregate <|-- n94
+%% bolt/functions/prestosql/aggregates/BitwiseAggregates.cpp:39
+class n74["Presto / BitwiseOrAggregate / BitwiseAggregates.cpp"]
+n22 <|-- n74
+%% bolt/functions/prestosql/aggregates/BitwiseAggregates.cpp:77
+class n75["Presto / BitwiseAndAggregate / BitwiseAggregates.cpp"]
+n22 <|-- n75
+%% bolt/functions/prestosql/aggregates/BoolAggregates.cpp:40
+class n64["Presto / BoolAndOrAggregate / BoolAggregates.cpp"]
+n21 <|-- n64
+%% bolt/functions/prestosql/aggregates/BoolAggregates.cpp:92
+class n65["Presto / BoolAndAggregate / BoolAggregates.cpp"]
+n64 <|-- n65
+%% bolt/functions/prestosql/aggregates/BoolAggregates.cpp:143
+class n66["Presto / BoolOrAggregate / BoolAggregates.cpp"]
+n64 <|-- n66
+%% bolt/functions/prestosql/aggregates/ChecksumAggregate.cpp:47
+class n100["Presto / ChecksumAggregate / ChecksumAggregate.cpp"]
+Aggregate <|-- n100
+%% bolt/functions/prestosql/aggregates/CountAggregate.cpp:42
+class n33["Presto / CountAggregate / CountAggregate.cpp"]
+n21 <|-- n33
+%% bolt/functions/prestosql/aggregates/CountIfAggregate.cpp:41
+class n70["Presto / CountIfAggregate / CountIfAggregate.cpp"]
+Aggregate <|-- n70
+%% bolt/functions/prestosql/aggregates/CovarianceAggregates.cpp:606
+class n73["Presto / CovarianceAggregate / CovarianceAggregates.cpp"]
+Aggregate <|-- n73
+%% bolt/functions/prestosql/aggregates/EntropyAggregates.cpp:90
+class n84["Presto / EntropyAggregate / EntropyAggregates.cpp"]
+Aggregate <|-- n84
+%% bolt/functions/prestosql/aggregates/FirstLastAggregate.cpp:34
+class n44["Presto / FirstLastAggregateBase / FirstLastAggregate.cpp"]
+n21 <|-- n44
+%% bolt/functions/prestosql/aggregates/FirstLastAggregate.cpp:122
+class n45["Presto / FirstAggregate / FirstLastAggregate.cpp"]
+n44 <|-- n45
+%% bolt/functions/prestosql/aggregates/FirstLastAggregate.cpp:234
+class n46["Presto / LastAggregate / FirstLastAggregate.cpp"]
+n44 <|-- n46
+%% bolt/functions/prestosql/aggregates/HistogramAggregate.cpp:170
+class n98["Presto / HistogramAggregate / HistogramAggregate.cpp"]
+Aggregate <|-- n98
+%% bolt/functions/prestosql/aggregates/HiveUDAFPercentileAggregate.cpp:186
+class n32["Presto / HiveUDAFPercentileAggregate / HiveUDAFPercentileAggregate.cpp"]
+Aggregate <|-- n32
+%% bolt/functions/prestosql/aggregates/MapAggAggregate.cpp:39
+class n101["Presto / MapAggAggregate / MapAggAggregate.cpp"]
+n92 <|-- n101
+%% bolt/functions/prestosql/aggregates/MapAggregateBase.h:40
+class n92["Presto / MapAggregateBase / MapAggregateBase.h"]
+Aggregate <|-- n92
+%% bolt/functions/prestosql/aggregates/MapSumAggregate.cpp:50
+class n60["Presto / MapSumAggregate / MapSumAggregate.cpp"]
+Aggregate <|-- n60
+%% bolt/functions/prestosql/aggregates/MapUnionAggregate.cpp:38
+class n67["Presto / MapUnionAggregate / MapUnionAggregate.cpp"]
+n92 <|-- n67
+%% bolt/functions/prestosql/aggregates/MapUnionAvgAggregate.cpp:29
+class n59["Presto / MapUnionAvgAggregate / MapUnionAvgAggregate.cpp"]
+Aggregate <|-- n59
+%% bolt/functions/prestosql/aggregates/MapUnionCountAggregate.cpp:26
+class n99["Presto / MapUnionCountAggregate / MapUnionCountAggregate.cpp"]
+Aggregate <|-- n99
+%% bolt/functions/prestosql/aggregates/MapUnionMinMaxAggregates.cpp:28
+class n85["Presto / MapUnionMinMaxAggregate / MapUnionMinMaxAggregates.cpp"]
+Aggregate <|-- n85
+%% bolt/functions/prestosql/aggregates/MapUnionMinMaxAggregates.cpp:177
+class n86["Presto / MapUnionMinAggregate / MapUnionMinMaxAggregates.cpp"]
+n85 <|-- n86
+%% bolt/functions/prestosql/aggregates/MapUnionMinMaxAggregates.cpp:224
+class n87["Presto / MapUnionMaxAggregate / MapUnionMinMaxAggregates.cpp"]
+n85 <|-- n87
+%% bolt/functions/prestosql/aggregates/MapUnionSumAggregate.cpp:188
+class n95["Presto / MapUnionSumAggregate / MapUnionSumAggregate.cpp"]
+Aggregate <|-- n95
+%% bolt/functions/prestosql/aggregates/MaxSizeForStatsAggregate.cpp:46
+class n76["Presto / MaxSizeForStatsAggregate / MaxSizeForStatsAggregate.cpp"]
+n21 <|-- n76
+%% bolt/functions/prestosql/aggregates/MinMaxAggregates.cpp:51
+class n47["Presto / MinMaxAggregate / MinMaxAggregates.cpp"]
+n21 <|-- n47
+%% bolt/functions/prestosql/aggregates/MinMaxAggregates.cpp:134
+class n48["Presto / MaxAggregate / MinMaxAggregates.cpp"]
+n47 <|-- n48
+%% bolt/functions/prestosql/aggregates/MinMaxAggregates.cpp:224
+class n49["Presto / MinAggregate / MinMaxAggregates.cpp"]
+n47 <|-- n49
+%% bolt/functions/prestosql/aggregates/MinMaxAggregates.cpp:320
+class n50["Presto / NonNumericMinMaxAggregateBase / MinMaxAggregates.cpp"]
+Aggregate <|-- n50
+%% bolt/functions/prestosql/aggregates/MinMaxAggregates.cpp:521
+class n51["Presto / NonNumericMaxAggregate / MinMaxAggregates.cpp"]
+n50 <|-- n51
+%% bolt/functions/prestosql/aggregates/MinMaxAggregates.cpp:584
+class n52["Presto / NonNumericMinAggregate / MinMaxAggregates.cpp"]
+n50 <|-- n52
+%% bolt/functions/prestosql/aggregates/MinMaxAggregates.cpp:722
+class n53["Presto / MinMaxNAggregateBase / MinMaxAggregates.cpp"]
+Aggregate <|-- n53
+%% bolt/functions/prestosql/aggregates/MinMaxAggregates.cpp:1002
+class n54["Presto / MinNAggregate / MinMaxAggregates.cpp"]
+n53 <|-- n54
+%% bolt/functions/prestosql/aggregates/MinMaxAggregates.cpp:1009
+class n55["Presto / MaxNAggregate / MinMaxAggregates.cpp"]
+n53 <|-- n55
+%% bolt/functions/prestosql/aggregates/MinMaxByAggregates.h:600
+class n41["Presto / MinMaxByNAggregate / MinMaxByAggregates.h"]
+Aggregate <|-- n41
+%% bolt/functions/prestosql/aggregates/MinMaxByAggregates.h:965
+class n42["Presto / MinByNAggregate / MinMaxByAggregates.h"]
+n41 <|-- n42
+%% bolt/functions/prestosql/aggregates/MinMaxByAggregates.h:986
+class n43["Presto / MaxByNAggregate / MinMaxByAggregates.h"]
+n41 <|-- n43
+%% bolt/functions/prestosql/aggregates/MultiMapAggAggregate.cpp:255
+class n97["Presto / MultiMapAggAggregate / MultiMapAggAggregate.cpp"]
+Aggregate <|-- n97
+%% bolt/functions/prestosql/aggregates/ReduceAgg.cpp:155
+class n89["Presto / ReduceAgg / ReduceAgg.cpp"]
+Aggregate <|-- n89
+%% bolt/functions/prestosql/aggregates/SetAggregates.cpp:39
+class n61["Presto / SetUnionAggregate / SetAggregates.cpp"]
+n28 <|-- n61
+%% bolt/functions/prestosql/aggregates/SetAggregates.cpp:119
+class n62["Presto / CountDistinctAggregate / SetAggregates.cpp"]
+n29 <|-- n62
+%% bolt/functions/prestosql/aggregates/SumDataSizeForStatsAggregate.cpp:46
+class n63["Presto / SumDataSizeForStatsAggregate / SumDataSizeForStatsAggregate.cpp"]
+n21 <|-- n63
+%% bolt/functions/prestosql/aggregates/VarianceAggregates.cpp:177
+class n79["Presto / VarianceAggregate / VarianceAggregates.cpp"]
+Aggregate <|-- n79
+%% bolt/functions/prestosql/aggregates/VarianceAggregates.cpp:496
+class n80["Presto / StdDevPopAggregate / VarianceAggregates.cpp"]
+n79 <|-- n80
+%% bolt/functions/prestosql/aggregates/VarianceAggregates.cpp:508
+class n81["Presto / StdDevSampAggregate / VarianceAggregates.cpp"]
+n79 <|-- n81
+%% bolt/functions/prestosql/aggregates/VarianceAggregates.cpp:521
+class n82["Presto / VarPopAggregate / VarianceAggregates.cpp"]
+n79 <|-- n82
+%% bolt/functions/prestosql/aggregates/VarianceAggregates.cpp:533
+class n83["Presto / VarSampAggregate / VarianceAggregates.cpp"]
+n79 <|-- n83
+%% bolt/functions/sketches/SketchAggregateBase.h:72
+class n16["Sketch / SketchAggregateBase / SketchAggregateBase.h"]
+Aggregate <|-- n16
+%% bolt/functions/sketches/SketchCPC.cpp:109
+class n2["Sketch / SketchCPCAggregate / SketchCPC.cpp"]
+n16 <|-- n2
+%% bolt/functions/sketches/SketchCPCSketch.cpp:113
+class n3["Sketch / SketchCPCAggregate / SketchCPCSketch.cpp"]
+n16 <|-- n3
+%% bolt/functions/sketches/SketchFI.cpp:138
+class n8["Sketch / SketchFIAggregate / SketchFI.cpp"]
+n16 <|-- n8
+%% bolt/functions/sketches/SketchHLL.cpp:162
+class n17["Sketch / SketchesHLLAggregate / SketchHLL.cpp"]
+n16 <|-- n17
+%% bolt/functions/sketches/SketchHLLSketch.cpp:185
+class n9["Sketch / SketchesHLLAggregate / SketchHLLSketch.cpp"]
+n16 <|-- n9
+%% bolt/functions/sketches/SketchHLLUnion.cpp:107
+class n6["Sketch / SketchesHLLUnionAggregate / SketchHLLUnion.cpp"]
+n16 <|-- n6
+%% bolt/functions/sketches/SketchKLL.cpp:142
+class n18["Sketch / SketchKLLAggregate / SketchKLL.cpp"]
+n16 <|-- n18
+%% bolt/functions/sketches/SketchKLLSketch.cpp:152
+class n15["Sketch / SketchesHLLAggregate / SketchKLLSketch.cpp"]
+n16 <|-- n15
+%% bolt/functions/sketches/SketchQuantiles.cpp:127
+class n1["Sketch / SketchQuantilesAggregate / SketchQuantiles.cpp"]
+n16 <|-- n1
+%% bolt/functions/sketches/SketchREQ.cpp:124
+class n4["Sketch / SketchREQAggregate / SketchREQ.cpp"]
+n16 <|-- n4
+%% bolt/functions/sketches/SketchTheta.cpp:132
+class n7["Sketch / SketchThetaAggregate / SketchTheta.cpp"]
+n16 <|-- n7
+%% bolt/functions/sketches/SketchVarOpt.cpp:184
+class n5["Sketch / SketchVarOptAggregate / SketchVarOpt.cpp"]
+n16 <|-- n5
+%% bolt/functions/sparksql/aggregates/AverageAggregate.cpp:39
+class n68["Spark / AverageAggregate / AverageAggregate.cpp"]
+n25 <|-- n68
+%% bolt/functions/sparksql/aggregates/AverageAggregate.cpp:91
+class n69["Spark / DecimalAverageAggregate / AverageAggregate.cpp"]
+n24 <|-- n69
+%% bolt/functions/sparksql/aggregates/BitmapConstructAggAggregate.cpp:55
+class n37["Spark / BitmapConstructAggAggregate / BitmapConstructAggAggregate.cpp"]
+Aggregate <|-- n37
+%% bolt/functions/sparksql/aggregates/BitmapOrAggAggregate.cpp:64
+class n88["Spark / BitmapOrAggAggregate / BitmapOrAggAggregate.cpp"]
+Aggregate <|-- n88
+%% bolt/functions/sparksql/aggregates/BitwiseXorAggregate.cpp:39
+class n78["Spark / BitwiseXorAggregate / BitwiseXorAggregate.cpp"]
+n22 <|-- n78
+%% bolt/functions/sparksql/aggregates/BloomFilterAggAggregate.cpp:74
+class n71["Spark / BloomFilterAggAggregate / BloomFilterAggAggregate.cpp"]
+Aggregate <|-- n71
+%% bolt/functions/sparksql/aggregates/DecimalSumAggregate.h:51
+class n58["Spark / DecimalSumAggregate / DecimalSumAggregate.h"]
+Aggregate <|-- n58
+%% bolt/functions/sparksql/aggregates/FirstLastAggregate.cpp:49
+class n38["Spark / FirstLastAggregateBase / FirstLastAggregate.cpp"]
+n21 <|-- n38
+%% bolt/functions/sparksql/aggregates/FirstLastAggregate.cpp:216
+class n39["Spark / FirstAggregate / FirstLastAggregate.cpp"]
+n38 <|-- n39
+%% bolt/functions/sparksql/aggregates/FirstLastAggregate.cpp:383
+class n40["Spark / LastAggregate / FirstLastAggregate.cpp"]
+n38 <|-- n40
+%% bolt/functions/sparksql/aggregates/ModeAggregate.cpp:294
+class n36["Spark / ComplexTypeModeAggregate / ModeAggregate.cpp"]
+Aggregate <|-- n36
+%% bolt/functions/sparksql/aggregates/PercentileAggregate.h:375
+class n72["Spark / PercentileAggregate / PercentileAggregate.h"]
+Aggregate <|-- n72
+%% bolt/functions/sparksql/aggregates/PercentileApproxAggregate.h:98
+class n56["Spark / PercentileApproxAggregateBase / PercentileApproxAggregate.h"]
+Aggregate <|-- n56
+%% bolt/functions/sparksql/aggregates/PercentileApproxAggregate.h:141
+class n57["Spark / PercentileApproxAggregate / PercentileApproxAggregate.h"]
+n56 <|-- n57
+%% bolt/python/Aggregate.h:38
+class n0["Python / PythonAggregate / Aggregate.h"]
+Aggregate <|-- n0
+note for Aggregate "template instantiations are omitted"
+%% SimpleAggregateAdapter<FUNC> owns FUNC; FUNC is not an Aggregate subclass.
+%% AggregateCompanionFunctionBase owns an Aggregate through fn_.
+%% SumAggregate in Presto/Spark is an alias of SumAggregateBase.
+%% Spark DecimalSumAggregate directly inherits Aggregate; shared DecimalSumAggregate inherits DecimalAggregate.

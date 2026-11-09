@@ -20,6 +20,7 @@
 #include "bolt/exec/PlanNodeStats.h"
 #include "bolt/exec/tests/utils/AssertQueryBuilder.h"
 #include "bolt/exec/tests/utils/OperatorTestBase.h"
+#include "bolt/exec/tests/utils/PlanBuilder.h"
 #include "bolt/exec/tests/utils/TempDirectoryPath.h"
 
 namespace bytedance::bolt::exec::test {
@@ -32,6 +33,53 @@ class AggBasic : public OperatorTestBase {
     filesystems::registerLocalFileSystem();
   }
 };
+
+TEST_F(AggBasic, simpleAggregates) {
+  const auto decimalType = DECIMAL(25, 2);
+  // Exercise values that cannot fit in a short decimal's int64_t storage.
+  const int128_t base = static_cast<int128_t>(10000000000LL) * 10000000000LL;
+  const auto input = makeRowVector({
+      makeNullableFlatVector<double>({2.5, std::nullopt, -1.5, 5.0}),
+      makeNullableFlatVector<int128_t>(
+          {base + 250, std::nullopt, base - 150, base + 500}, decimalType),
+  });
+  const std::vector<std::string> aggregates = {
+      "first(c0)",
+      "sum(c0)",
+      "avg(c0)",
+      "count(c0)",
+      "min(c0)",
+      "first(c1)",
+      "sum(c1)",
+      "avg(c1)",
+      "count(c1)",
+      "min(c1)"};
+  const auto expected = makeRowVector({
+      makeFlatVector<double>({2.5}),
+      makeFlatVector<double>({6.0}),
+      makeFlatVector<double>({2.0}),
+      makeFlatVector<int64_t>({3}),
+      makeFlatVector<double>({-1.5}),
+      makeFlatVector<int128_t>({base + 250}, decimalType),
+      makeFlatVector<int128_t>({3 * base + 600}, DECIMAL(38, 2)),
+      makeFlatVector<int128_t>({base + 200}, decimalType),
+      makeFlatVector<int64_t>({3}),
+      makeFlatVector<int128_t>({base - 150}, decimalType),
+  });
+
+  const auto single = PlanBuilder()
+                          .values({input})
+                          .singleAggregation({}, aggregates)
+                          .planNode();
+  AssertQueryBuilder(single).maxDrivers(1).assertResults(expected);
+
+  const auto partialToFinal = PlanBuilder()
+                                  .values({input})
+                                  .partialAggregation({}, aggregates)
+                                  .finalAggregation()
+                                  .planNode();
+  AssertQueryBuilder(partialToFinal).maxDrivers(1).assertResults(expected);
+}
 
 TEST_F(AggBasic, partialToFinalWithSpill) {
   constexpr vector_size_t kRowsPerBatch = 8;

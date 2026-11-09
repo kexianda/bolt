@@ -1,0 +1,658 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="2440" height="3665" viewBox="0 0 2440 3665" role="img" aria-labelledby="title desc">
+<!-- Copyright (c) ByteDance Ltd. and/or its affiliates. SPDX-License-Identifier: Apache-2.0 -->
+<title id="title">Bolt Aggregate 类继承图</title>
+<desc id="desc">基于 hybrid 290ea2c1 的 102 个生产派生类，按数值、集合与比较、统计与适配分类；三栏根节点均为同一个 exec::Aggregate。空心三角指向基类。</desc>
+<defs><marker id="base" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M 1 1 L 10 6 L 1 11 Z" fill="white" stroke="#94a3b8"/></marker></defs>
+<style>text {font-family: "DejaVu Sans", "Noto Sans CJK SC", sans-serif} .name {font-size:19px;font-weight:600;fill:#172338} .source {font-size:13px;fill:#64748b} .body {font-size:20px;fill:#475569} a:hover rect {fill:#eef4ff} </style>
+<rect width="2440" height="3665" fill="#f5f7fb"/>
+<text x="40" y="62" font-size="38" font-weight="700" fill="#14243b">Bolt Aggregate 类继承图</text>
+<text x="40" y="100" class="body">hybrid @ 290ea2c1  ·  102 个派生类  ·  生产代码声明视图（不代表单次构建的启用集合）</text>
+<text x="40" y="140" class="body">空心三角指向基类；三栏重复展示同一个根类。模板参数省略，偏特化并入主模板；同名实现按模块与文件区分。</text>
+<rect x="40" y="166" width="14" height="14" rx="3" fill="#2563eb"/>
+<text x="64" y="180" class="body">Shared</text>
+<rect x="195" y="166" width="14" height="14" rx="3" fill="#087f74"/>
+<text x="219" y="180" class="body">Presto</text>
+<rect x="350" y="166" width="14" height="14" rx="3" fill="#c45b13"/>
+<text x="374" y="180" class="body">Spark</text>
+<rect x="505" y="166" width="14" height="14" rx="3" fill="#7c3aed"/>
+<text x="529" y="180" class="body">Sketch</text>
+<rect x="660" y="166" width="14" height="14" rx="3" fill="#475569"/>
+<text x="684" y="180" class="body">Exec</text>
+<rect x="815" y="166" width="14" height="14" rx="3" fill="#9d387c"/>
+<text x="839" y="180" class="body">Python</text>
+<rect x="970" y="166" width="14" height="14" rx="3" fill="#9d387c"/>
+<text x="994" y="180" class="body">Colocate</text>
+<rect x="40" y="220" width="780" height="2180" rx="16" fill="white" stroke="#e2e8f0"/>
+<text x="60" y="255" font-size="23" font-weight="700" fill="#172338">01  数值与 Decimal</text>
+<path d="M 86 397 H 72 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 112 467 H 98 V 424" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 86 537 H 72 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 112 607 H 98 V 564" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 112 677 H 98 V 564" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 112 747 H 98 V 564" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 86 817 H 72 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 86 887 H 72 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 112 957 H 98 V 914" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 112 1027 H 98 V 914" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 138 1097 H 124 V 1054" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 138 1167 H 124 V 1054" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 138 1237 H 124 V 1054" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 112 1307 H 98 V 914" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 138 1377 H 124 V 1334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 138 1447 H 124 V 1334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 112 1517 H 98 V 914" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 112 1587 H 98 V 914" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 138 1657 H 124 V 1614" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 138 1727 H 124 V 1614" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 112 1797 H 98 V 914" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 138 1867 H 124 V 1824" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 138 1937 H 124 V 1824" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 112 2007 H 98 V 914" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 112 2077 H 98 V 914" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 138 2147 H 124 V 2104" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 138 2217 H 124 V 2104" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 112 2287 H 98 V 914" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 112 2357 H 98 V 914" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<rect x="60" y="280" width="740" height="54" rx="8" fill="#172b4d"/>
+<text x="74" y="304" font-size="21" font-weight="700" fill="white">exec::Aggregate  «abstract»</text>
+<text x="74" y="324" font-size="13" fill="#c9d7eb">bolt/exec/Aggregate.h:58 · 多态聚合函数接口</text>
+<a xlink:href="../../bolt/functions/lib/aggregates/AverageAggregateBase.h#L92"><title>bolt/functions/lib/aggregates/AverageAggregateBase.h:92 | AverageAggregateBase : exec::Aggregate</title>
+<rect x="86" y="370" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="86" y="377" width="4" height="40" rx="2" fill="#2563eb"/>
+<text x="99" y="393" class="name">AverageAggregateBase</text>
+<text x="99" y="413" class="source">Shared · AverageAggregateBase.h:92</text></a>
+<a xlink:href="../../bolt/functions/sparksql/aggregates/AverageAggregate.cpp#L39"><title>bolt/functions/sparksql/aggregates/AverageAggregate.cpp:39 | AverageAggregate : AverageAggregateBase</title>
+<rect x="112" y="440" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="112" y="447" width="4" height="40" rx="2" fill="#c45b13"/>
+<text x="125" y="463" class="name">AverageAggregate</text>
+<text x="125" y="483" class="source">Spark · AverageAggregate.cpp:39</text></a>
+<a xlink:href="../../bolt/functions/lib/aggregates/DecimalAggregate.h#L85"><title>bolt/functions/lib/aggregates/DecimalAggregate.h:85 | DecimalAggregate : exec::Aggregate</title>
+<rect x="86" y="510" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="86" y="517" width="4" height="40" rx="2" fill="#2563eb"/>
+<text x="99" y="533" class="name">DecimalAggregate</text>
+<text x="99" y="553" class="source">Shared · DecimalAggregate.h:85</text></a>
+<a xlink:href="../../bolt/functions/sparksql/aggregates/AverageAggregate.cpp#L91"><title>bolt/functions/sparksql/aggregates/AverageAggregate.cpp:91 | DecimalAverageAggregate : DecimalAggregate</title>
+<rect x="112" y="580" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="112" y="587" width="4" height="40" rx="2" fill="#c45b13"/>
+<text x="125" y="603" class="name">DecimalAverageAggregate</text>
+<text x="125" y="623" class="source">Spark · AverageAggregate.cpp:91</text></a>
+<a xlink:href="../../bolt/functions/lib/aggregates/AverageAggregateBase.h#L470"><title>bolt/functions/lib/aggregates/AverageAggregateBase.h:470 | DecimalAverageAggregateBase : DecimalAggregate</title>
+<rect x="112" y="650" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="112" y="657" width="4" height="40" rx="2" fill="#2563eb"/>
+<text x="125" y="673" class="name">DecimalAverageAggregateBase</text>
+<text x="125" y="693" class="source">Shared · AverageAggregateBase.h:470</text></a>
+<a xlink:href="../../bolt/functions/lib/aggregates/SumAggregateBase.h#L212"><title>bolt/functions/lib/aggregates/SumAggregateBase.h:212 | DecimalSumAggregate : functions::aggregate::DecimalAggregate</title>
+<rect x="112" y="720" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="112" y="727" width="4" height="40" rx="2" fill="#2563eb"/>
+<text x="125" y="743" class="name">DecimalSumAggregate</text>
+<text x="125" y="763" class="source">Shared · SumAggregateBase.h:212</text></a>
+<a xlink:href="../../bolt/functions/sparksql/aggregates/DecimalSumAggregate.h#L51"><title>bolt/functions/sparksql/aggregates/DecimalSumAggregate.h:51 | DecimalSumAggregate : exec::Aggregate</title>
+<rect x="86" y="790" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="86" y="797" width="4" height="40" rx="2" fill="#c45b13"/>
+<text x="99" y="813" class="name">DecimalSumAggregate</text>
+<text x="99" y="833" class="source">Spark · DecimalSumAggregate.h:51</text></a>
+<a xlink:href="../../bolt/functions/lib/aggregates/SimpleNumericAggregate.h#L41"><title>bolt/functions/lib/aggregates/SimpleNumericAggregate.h:41 | SimpleNumericAggregate : exec::Aggregate</title>
+<rect x="86" y="860" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="86" y="867" width="4" height="40" rx="2" fill="#2563eb"/>
+<text x="99" y="883" class="name">SimpleNumericAggregate</text>
+<text x="99" y="903" class="source">Shared · SimpleNumericAggregate.h:41</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/ArbitraryAggregate.cpp#L44"><title>bolt/functions/prestosql/aggregates/ArbitraryAggregate.cpp:44 | ArbitraryAggregate : SimpleNumericAggregate</title>
+<rect x="112" y="930" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="112" y="937" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="125" y="953" class="name">ArbitraryAggregate</text>
+<text x="125" y="973" class="source">Presto · ArbitraryAggregate.cpp:44</text></a>
+<a xlink:href="../../bolt/functions/lib/aggregates/BitwiseAggregateBase.h#L39"><title>bolt/functions/lib/aggregates/BitwiseAggregateBase.h:39 | BitwiseAggregateBase : SimpleNumericAggregate</title>
+<rect x="112" y="1000" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="112" y="1007" width="4" height="40" rx="2" fill="#2563eb"/>
+<text x="125" y="1023" class="name">BitwiseAggregateBase</text>
+<text x="125" y="1043" class="source">Shared · BitwiseAggregateBase.h:39</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/BitwiseAggregates.cpp#L77"><title>bolt/functions/prestosql/aggregates/BitwiseAggregates.cpp:77 | BitwiseAndAggregate : BitwiseAggregateBase</title>
+<rect x="138" y="1070" width="662" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="138" y="1077" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="151" y="1093" class="name">BitwiseAndAggregate</text>
+<text x="151" y="1113" class="source">Presto · BitwiseAggregates.cpp:77</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/BitwiseAggregates.cpp#L39"><title>bolt/functions/prestosql/aggregates/BitwiseAggregates.cpp:39 | BitwiseOrAggregate : BitwiseAggregateBase</title>
+<rect x="138" y="1140" width="662" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="138" y="1147" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="151" y="1163" class="name">BitwiseOrAggregate</text>
+<text x="151" y="1183" class="source">Presto · BitwiseAggregates.cpp:39</text></a>
+<a xlink:href="../../bolt/functions/sparksql/aggregates/BitwiseXorAggregate.cpp#L39"><title>bolt/functions/sparksql/aggregates/BitwiseXorAggregate.cpp:39 | BitwiseXorAggregate : BitwiseAggregateBase</title>
+<rect x="138" y="1210" width="662" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="138" y="1217" width="4" height="40" rx="2" fill="#c45b13"/>
+<text x="151" y="1233" class="name">BitwiseXorAggregate</text>
+<text x="151" y="1253" class="source">Spark · BitwiseXorAggregate.cpp:39</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/BoolAggregates.cpp#L40"><title>bolt/functions/prestosql/aggregates/BoolAggregates.cpp:40 | BoolAndOrAggregate : SimpleNumericAggregate</title>
+<rect x="112" y="1280" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="112" y="1287" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="125" y="1303" class="name">BoolAndOrAggregate</text>
+<text x="125" y="1323" class="source">Presto · BoolAggregates.cpp:40</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/BoolAggregates.cpp#L92"><title>bolt/functions/prestosql/aggregates/BoolAggregates.cpp:92 | BoolAndAggregate : BoolAndOrAggregate</title>
+<rect x="138" y="1350" width="662" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="138" y="1357" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="151" y="1373" class="name">BoolAndAggregate</text>
+<text x="151" y="1393" class="source">Presto · BoolAggregates.cpp:92</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/BoolAggregates.cpp#L143"><title>bolt/functions/prestosql/aggregates/BoolAggregates.cpp:143 | BoolOrAggregate : BoolAndOrAggregate</title>
+<rect x="138" y="1420" width="662" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="138" y="1427" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="151" y="1443" class="name">BoolOrAggregate</text>
+<text x="151" y="1463" class="source">Presto · BoolAggregates.cpp:143</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/CountAggregate.cpp#L42"><title>bolt/functions/prestosql/aggregates/CountAggregate.cpp:42 | CountAggregate : SimpleNumericAggregate</title>
+<rect x="112" y="1490" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="112" y="1497" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="125" y="1513" class="name">CountAggregate</text>
+<text x="125" y="1533" class="source">Presto · CountAggregate.cpp:42</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/FirstLastAggregate.cpp#L34"><title>bolt/functions/prestosql/aggregates/FirstLastAggregate.cpp:34 | FirstLastAggregateBase : SimpleNumericAggregate</title>
+<rect x="112" y="1560" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="112" y="1567" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="125" y="1583" class="name">FirstLastAggregateBase</text>
+<text x="125" y="1603" class="source">Presto · FirstLastAggregate.cpp:34</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/FirstLastAggregate.cpp#L122"><title>bolt/functions/prestosql/aggregates/FirstLastAggregate.cpp:122 | FirstAggregate : FirstLastAggregateBase</title>
+<rect x="138" y="1630" width="662" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="138" y="1637" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="151" y="1653" class="name">FirstAggregate</text>
+<text x="151" y="1673" class="source">Presto · FirstLastAggregate.cpp:122</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/FirstLastAggregate.cpp#L234"><title>bolt/functions/prestosql/aggregates/FirstLastAggregate.cpp:234 | LastAggregate : FirstLastAggregateBase</title>
+<rect x="138" y="1700" width="662" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="138" y="1707" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="151" y="1723" class="name">LastAggregate</text>
+<text x="151" y="1743" class="source">Presto · FirstLastAggregate.cpp:234</text></a>
+<a xlink:href="../../bolt/functions/sparksql/aggregates/FirstLastAggregate.cpp#L49"><title>bolt/functions/sparksql/aggregates/FirstLastAggregate.cpp:49 | FirstLastAggregateBase : SimpleNumericAggregate</title>
+<rect x="112" y="1770" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="112" y="1777" width="4" height="40" rx="2" fill="#c45b13"/>
+<text x="125" y="1793" class="name">FirstLastAggregateBase</text>
+<text x="125" y="1813" class="source">Spark · FirstLastAggregate.cpp:49</text></a>
+<a xlink:href="../../bolt/functions/sparksql/aggregates/FirstLastAggregate.cpp#L216"><title>bolt/functions/sparksql/aggregates/FirstLastAggregate.cpp:216 | FirstAggregate : FirstLastAggregateBase</title>
+<rect x="138" y="1840" width="662" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="138" y="1847" width="4" height="40" rx="2" fill="#c45b13"/>
+<text x="151" y="1863" class="name">FirstAggregate</text>
+<text x="151" y="1883" class="source">Spark · FirstLastAggregate.cpp:216</text></a>
+<a xlink:href="../../bolt/functions/sparksql/aggregates/FirstLastAggregate.cpp#L383"><title>bolt/functions/sparksql/aggregates/FirstLastAggregate.cpp:383 | LastAggregate : FirstLastAggregateBase</title>
+<rect x="138" y="1910" width="662" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="138" y="1917" width="4" height="40" rx="2" fill="#c45b13"/>
+<text x="151" y="1933" class="name">LastAggregate</text>
+<text x="151" y="1953" class="source">Spark · FirstLastAggregate.cpp:383</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/MaxSizeForStatsAggregate.cpp#L46"><title>bolt/functions/prestosql/aggregates/MaxSizeForStatsAggregate.cpp:46 | MaxSizeForStatsAggregate : SimpleNumericAggregate</title>
+<rect x="112" y="1980" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="112" y="1987" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="125" y="2003" class="name">MaxSizeForStatsAggregate</text>
+<text x="125" y="2023" class="source">Presto · MaxSizeForStatsAggregate.cpp:46</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/MinMaxAggregates.cpp#L51"><title>bolt/functions/prestosql/aggregates/MinMaxAggregates.cpp:51 | MinMaxAggregate : SimpleNumericAggregate</title>
+<rect x="112" y="2050" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="112" y="2057" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="125" y="2073" class="name">MinMaxAggregate</text>
+<text x="125" y="2093" class="source">Presto · MinMaxAggregates.cpp:51</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/MinMaxAggregates.cpp#L134"><title>bolt/functions/prestosql/aggregates/MinMaxAggregates.cpp:134 | MaxAggregate : MinMaxAggregate</title>
+<rect x="138" y="2120" width="662" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="138" y="2127" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="151" y="2143" class="name">MaxAggregate</text>
+<text x="151" y="2163" class="source">Presto · MinMaxAggregates.cpp:134</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/MinMaxAggregates.cpp#L224"><title>bolt/functions/prestosql/aggregates/MinMaxAggregates.cpp:224 | MinAggregate : MinMaxAggregate</title>
+<rect x="138" y="2190" width="662" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="138" y="2197" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="151" y="2213" class="name">MinAggregate</text>
+<text x="151" y="2233" class="source">Presto · MinMaxAggregates.cpp:224</text></a>
+<a xlink:href="../../bolt/functions/lib/aggregates/SumAggregateBase.h#L46"><title>bolt/functions/lib/aggregates/SumAggregateBase.h:46 | SumAggregateBase : SimpleNumericAggregate</title>
+<rect x="112" y="2260" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="112" y="2267" width="4" height="40" rx="2" fill="#2563eb"/>
+<text x="125" y="2283" class="name">SumAggregateBase</text>
+<text x="125" y="2303" class="source">Shared · SumAggregateBase.h:46</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/SumDataSizeForStatsAggregate.cpp#L46"><title>bolt/functions/prestosql/aggregates/SumDataSizeForStatsAggregate.cpp:46 | SumDataSizeForStatsAggregate : SimpleNumericAggregate</title>
+<rect x="112" y="2330" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="112" y="2337" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="125" y="2353" class="name">SumDataSizeForStatsAggregate</text>
+<text x="125" y="2373" class="source">Presto · SumDataSizeForStatsAggregate.cpp:46</text></a>
+<rect x="840" y="220" width="780" height="2250" rx="16" fill="white" stroke="#e2e8f0"/>
+<text x="860" y="255" font-size="23" font-weight="700" fill="#172338">02  集合、Map 与比较</text>
+<path d="M 886 397 H 872 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 886 467 H 872 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 886 537 H 872 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 886 607 H 872 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 886 677 H 872 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 912 747 H 898 V 704" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 912 817 H 898 V 704" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 886 887 H 872 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 886 957 H 872 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 886 1027 H 872 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 886 1097 H 872 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 912 1167 H 898 V 1124" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 912 1237 H 898 V 1124" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 886 1307 H 872 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 886 1377 H 872 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 886 1447 H 872 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 912 1517 H 898 V 1474" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 912 1587 H 898 V 1474" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 886 1657 H 872 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 912 1727 H 898 V 1684" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 912 1797 H 898 V 1684" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 886 1867 H 872 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 886 1937 H 872 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 886 2007 H 872 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 912 2077 H 898 V 2034" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 912 2147 H 898 V 2034" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 886 2217 H 872 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 912 2287 H 898 V 2244" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 938 2357 H 924 V 2314" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 912 2427 H 898 V 2244" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<rect x="860" y="280" width="740" height="54" rx="8" fill="#172b4d"/>
+<text x="874" y="304" font-size="21" font-weight="700" fill="white">exec::Aggregate  «abstract»</text>
+<text x="874" y="324" font-size="13" fill="#c9d7eb">bolt/exec/Aggregate.h:58 · 多态聚合函数接口</text>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/ArrayAdditionAggregate.cpp#L37"><title>bolt/functions/prestosql/aggregates/ArrayAdditionAggregate.cpp:37 | ArrayAdditionAggregate : exec::Aggregate</title>
+<rect x="886" y="370" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="886" y="377" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="899" y="393" class="name">ArrayAdditionAggregate</text>
+<text x="899" y="413" class="source">Presto · ArrayAdditionAggregate.cpp:37</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/ArrayAggAggregate.cpp#L44"><title>bolt/functions/prestosql/aggregates/ArrayAggAggregate.cpp:44 | ArrayAggAggregate : exec::Aggregate</title>
+<rect x="886" y="440" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="886" y="447" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="899" y="463" class="name">ArrayAggAggregate</text>
+<text x="899" y="483" class="source">Presto · ArrayAggAggregate.cpp:44</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/ArrayCountAggregate.cpp#L35"><title>bolt/functions/prestosql/aggregates/ArrayCountAggregate.cpp:35 | ArrayCountAggregate : exec::Aggregate</title>
+<rect x="886" y="510" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="886" y="517" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="899" y="533" class="name">ArrayCountAggregate</text>
+<text x="899" y="553" class="source">Presto · ArrayCountAggregate.cpp:35</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/HistogramAggregate.cpp#L170"><title>bolt/functions/prestosql/aggregates/HistogramAggregate.cpp:170 | HistogramAggregate : exec::Aggregate</title>
+<rect x="886" y="580" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="886" y="587" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="899" y="603" class="name">HistogramAggregate</text>
+<text x="899" y="623" class="source">Presto · HistogramAggregate.cpp:170</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/MapAggregateBase.h#L40"><title>bolt/functions/prestosql/aggregates/MapAggregateBase.h:40 | MapAggregateBase : exec::Aggregate</title>
+<rect x="886" y="650" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="886" y="657" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="899" y="673" class="name">MapAggregateBase</text>
+<text x="899" y="693" class="source">Presto · MapAggregateBase.h:40</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/MapAggAggregate.cpp#L39"><title>bolt/functions/prestosql/aggregates/MapAggAggregate.cpp:39 | MapAggAggregate : MapAggregateBase</title>
+<rect x="912" y="720" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="912" y="727" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="925" y="743" class="name">MapAggAggregate</text>
+<text x="925" y="763" class="source">Presto · MapAggAggregate.cpp:39</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/MapUnionAggregate.cpp#L38"><title>bolt/functions/prestosql/aggregates/MapUnionAggregate.cpp:38 | MapUnionAggregate : MapAggregateBase</title>
+<rect x="912" y="790" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="912" y="797" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="925" y="813" class="name">MapUnionAggregate</text>
+<text x="925" y="833" class="source">Presto · MapUnionAggregate.cpp:38</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/MapSumAggregate.cpp#L50"><title>bolt/functions/prestosql/aggregates/MapSumAggregate.cpp:50 | MapSumAggregate : exec::Aggregate</title>
+<rect x="886" y="860" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="886" y="867" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="899" y="883" class="name">MapSumAggregate</text>
+<text x="899" y="903" class="source">Presto · MapSumAggregate.cpp:50</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/MapUnionAvgAggregate.cpp#L29"><title>bolt/functions/prestosql/aggregates/MapUnionAvgAggregate.cpp:29 | MapUnionAvgAggregate : exec::Aggregate</title>
+<rect x="886" y="930" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="886" y="937" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="899" y="953" class="name">MapUnionAvgAggregate</text>
+<text x="899" y="973" class="source">Presto · MapUnionAvgAggregate.cpp:29</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/MapUnionCountAggregate.cpp#L26"><title>bolt/functions/prestosql/aggregates/MapUnionCountAggregate.cpp:26 | MapUnionCountAggregate : exec::Aggregate</title>
+<rect x="886" y="1000" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="886" y="1007" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="899" y="1023" class="name">MapUnionCountAggregate</text>
+<text x="899" y="1043" class="source">Presto · MapUnionCountAggregate.cpp:26</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/MapUnionMinMaxAggregates.cpp#L28"><title>bolt/functions/prestosql/aggregates/MapUnionMinMaxAggregates.cpp:28 | MapUnionMinMaxAggregate : exec::Aggregate</title>
+<rect x="886" y="1070" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="886" y="1077" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="899" y="1093" class="name">MapUnionMinMaxAggregate</text>
+<text x="899" y="1113" class="source">Presto · MapUnionMinMaxAggregates.cpp:28</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/MapUnionMinMaxAggregates.cpp#L224"><title>bolt/functions/prestosql/aggregates/MapUnionMinMaxAggregates.cpp:224 | MapUnionMaxAggregate : MapUnionMinMaxAggregate</title>
+<rect x="912" y="1140" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="912" y="1147" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="925" y="1163" class="name">MapUnionMaxAggregate</text>
+<text x="925" y="1183" class="source">Presto · MapUnionMinMaxAggregates.cpp:224</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/MapUnionMinMaxAggregates.cpp#L177"><title>bolt/functions/prestosql/aggregates/MapUnionMinMaxAggregates.cpp:177 | MapUnionMinAggregate : MapUnionMinMaxAggregate</title>
+<rect x="912" y="1210" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="912" y="1217" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="925" y="1233" class="name">MapUnionMinAggregate</text>
+<text x="925" y="1253" class="source">Presto · MapUnionMinMaxAggregates.cpp:177</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/MapUnionSumAggregate.cpp#L188"><title>bolt/functions/prestosql/aggregates/MapUnionSumAggregate.cpp:188 | MapUnionSumAggregate : exec::Aggregate</title>
+<rect x="886" y="1280" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="886" y="1287" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="899" y="1303" class="name">MapUnionSumAggregate</text>
+<text x="899" y="1323" class="source">Presto · MapUnionSumAggregate.cpp:188</text></a>
+<a xlink:href="../../bolt/functions/lib/aggregates/MinMaxByAggregatesBase.h#L106"><title>bolt/functions/lib/aggregates/MinMaxByAggregatesBase.h:106 | MinMaxByAggregateBase : exec::Aggregate</title>
+<rect x="886" y="1350" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="886" y="1357" width="4" height="40" rx="2" fill="#2563eb"/>
+<text x="899" y="1373" class="name">MinMaxByAggregateBase</text>
+<text x="899" y="1393" class="source">Shared · MinMaxByAggregatesBase.h:106</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/MinMaxByAggregates.h#L600"><title>bolt/functions/prestosql/aggregates/MinMaxByAggregates.h:600 | MinMaxByNAggregate : exec::Aggregate</title>
+<rect x="886" y="1420" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="886" y="1427" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="899" y="1443" class="name">MinMaxByNAggregate</text>
+<text x="899" y="1463" class="source">Presto · MinMaxByAggregates.h:600</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/MinMaxByAggregates.h#L986"><title>bolt/functions/prestosql/aggregates/MinMaxByAggregates.h:986 | MaxByNAggregate : MinMaxByNAggregate</title>
+<rect x="912" y="1490" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="912" y="1497" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="925" y="1513" class="name">MaxByNAggregate</text>
+<text x="925" y="1533" class="source">Presto · MinMaxByAggregates.h:986</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/MinMaxByAggregates.h#L965"><title>bolt/functions/prestosql/aggregates/MinMaxByAggregates.h:965 | MinByNAggregate : MinMaxByNAggregate</title>
+<rect x="912" y="1560" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="912" y="1567" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="925" y="1583" class="name">MinByNAggregate</text>
+<text x="925" y="1603" class="source">Presto · MinMaxByAggregates.h:965</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/MinMaxAggregates.cpp#L722"><title>bolt/functions/prestosql/aggregates/MinMaxAggregates.cpp:722 | MinMaxNAggregateBase : exec::Aggregate</title>
+<rect x="886" y="1630" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="886" y="1637" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="899" y="1653" class="name">MinMaxNAggregateBase</text>
+<text x="899" y="1673" class="source">Presto · MinMaxAggregates.cpp:722</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/MinMaxAggregates.cpp#L1009"><title>bolt/functions/prestosql/aggregates/MinMaxAggregates.cpp:1009 | MaxNAggregate : MinMaxNAggregateBase</title>
+<rect x="912" y="1700" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="912" y="1707" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="925" y="1723" class="name">MaxNAggregate</text>
+<text x="925" y="1743" class="source">Presto · MinMaxAggregates.cpp:1009</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/MinMaxAggregates.cpp#L1002"><title>bolt/functions/prestosql/aggregates/MinMaxAggregates.cpp:1002 | MinNAggregate : MinMaxNAggregateBase</title>
+<rect x="912" y="1770" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="912" y="1777" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="925" y="1793" class="name">MinNAggregate</text>
+<text x="925" y="1813" class="source">Presto · MinMaxAggregates.cpp:1002</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/MultiMapAggAggregate.cpp#L255"><title>bolt/functions/prestosql/aggregates/MultiMapAggAggregate.cpp:255 | MultiMapAggAggregate : exec::Aggregate</title>
+<rect x="886" y="1840" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="886" y="1847" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="899" y="1863" class="name">MultiMapAggAggregate</text>
+<text x="899" y="1883" class="source">Presto · MultiMapAggAggregate.cpp:255</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/ArbitraryAggregate.cpp#L165"><title>bolt/functions/prestosql/aggregates/ArbitraryAggregate.cpp:165 | NonNumericArbitrary : exec::Aggregate</title>
+<rect x="886" y="1910" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="886" y="1917" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="899" y="1933" class="name">NonNumericArbitrary</text>
+<text x="899" y="1953" class="source">Presto · ArbitraryAggregate.cpp:165</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/MinMaxAggregates.cpp#L320"><title>bolt/functions/prestosql/aggregates/MinMaxAggregates.cpp:320 | NonNumericMinMaxAggregateBase : exec::Aggregate</title>
+<rect x="886" y="1980" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="886" y="1987" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="899" y="2003" class="name">NonNumericMinMaxAggregateBase</text>
+<text x="899" y="2023" class="source">Presto · MinMaxAggregates.cpp:320</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/MinMaxAggregates.cpp#L521"><title>bolt/functions/prestosql/aggregates/MinMaxAggregates.cpp:521 | NonNumericMaxAggregate : NonNumericMinMaxAggregateBase</title>
+<rect x="912" y="2050" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="912" y="2057" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="925" y="2073" class="name">NonNumericMaxAggregate</text>
+<text x="925" y="2093" class="source">Presto · MinMaxAggregates.cpp:521</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/MinMaxAggregates.cpp#L584"><title>bolt/functions/prestosql/aggregates/MinMaxAggregates.cpp:584 | NonNumericMinAggregate : NonNumericMinMaxAggregateBase</title>
+<rect x="912" y="2120" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="912" y="2127" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="925" y="2143" class="name">NonNumericMinAggregate</text>
+<text x="925" y="2163" class="source">Presto · MinMaxAggregates.cpp:584</text></a>
+<a xlink:href="../../bolt/functions/lib/aggregates/SetBaseAggregate.h#L42"><title>bolt/functions/lib/aggregates/SetBaseAggregate.h:42 | SetBaseAggregate : exec::Aggregate</title>
+<rect x="886" y="2190" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="886" y="2197" width="4" height="40" rx="2" fill="#2563eb"/>
+<text x="899" y="2213" class="name">SetBaseAggregate</text>
+<text x="899" y="2233" class="source">Shared · SetBaseAggregate.h:42</text></a>
+<a xlink:href="../../bolt/functions/lib/aggregates/SetBaseAggregate.h#L236"><title>bolt/functions/lib/aggregates/SetBaseAggregate.h:236 | SetAggAggregate : SetBaseAggregate</title>
+<rect x="912" y="2260" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="912" y="2267" width="4" height="40" rx="2" fill="#2563eb"/>
+<text x="925" y="2283" class="name">SetAggAggregate</text>
+<text x="925" y="2303" class="source">Shared · SetBaseAggregate.h:236</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/SetAggregates.cpp#L119"><title>bolt/functions/prestosql/aggregates/SetAggregates.cpp:119 | CountDistinctAggregate : SetAggAggregate</title>
+<rect x="938" y="2330" width="662" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="938" y="2337" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="951" y="2353" class="name">CountDistinctAggregate</text>
+<text x="951" y="2373" class="source">Presto · SetAggregates.cpp:119</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/SetAggregates.cpp#L39"><title>bolt/functions/prestosql/aggregates/SetAggregates.cpp:39 | SetUnionAggregate : SetBaseAggregate</title>
+<rect x="912" y="2400" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="912" y="2407" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="925" y="2423" class="name">SetUnionAggregate</text>
+<text x="925" y="2443" class="source">Presto · SetAggregates.cpp:39</text></a>
+<rect x="1640" y="220" width="780" height="3160" rx="16" fill="white" stroke="#e2e8f0"/>
+<text x="1660" y="255" font-size="23" font-weight="700" fill="#172338">03  统计、Sketch 与适配</text>
+<path d="M 1686 397 H 1672 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1712 467 H 1698 V 424" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1738 537 H 1724 V 494" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1712 607 H 1698 V 424" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1686 677 H 1672 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1686 747 H 1672 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1686 817 H 1672 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1686 887 H 1672 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1686 957 H 1672 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1686 1027 H 1672 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1686 1097 H 1672 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1686 1167 H 1672 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1686 1237 H 1672 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1686 1307 H 1672 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1686 1377 H 1672 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1686 1447 H 1672 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1686 1517 H 1672 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1686 1587 H 1672 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1686 1657 H 1672 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1686 1727 H 1672 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1686 1797 H 1672 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1712 1867 H 1698 V 1824" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1686 1937 H 1672 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1686 2007 H 1672 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1686 2077 H 1672 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1686 2147 H 1672 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1712 2217 H 1698 V 2174" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1712 2287 H 1698 V 2174" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1712 2357 H 1698 V 2174" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1712 2427 H 1698 V 2174" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1712 2497 H 1698 V 2174" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1712 2567 H 1698 V 2174" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1712 2637 H 1698 V 2174" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1712 2707 H 1698 V 2174" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1712 2777 H 1698 V 2174" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1712 2847 H 1698 V 2174" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1712 2917 H 1698 V 2174" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1712 2987 H 1698 V 2174" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1686 3057 H 1672 V 334" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1712 3127 H 1698 V 3084" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1712 3197 H 1698 V 3084" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1712 3267 H 1698 V 3084" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<path d="M 1712 3337 H 1698 V 3084" fill="none" stroke="#94a3b8" stroke-width="1.3" marker-end="url(#base)"/>
+<rect x="1660" y="280" width="740" height="54" rx="8" fill="#172b4d"/>
+<text x="1674" y="304" font-size="21" font-weight="700" fill="white">exec::Aggregate  «abstract»</text>
+<text x="1674" y="324" font-size="13" fill="#c9d7eb">bolt/exec/Aggregate.h:58 · 多态聚合函数接口</text>
+<a xlink:href="../../bolt/exec/AggregateCompanionAdapter.h#L38"><title>bolt/exec/AggregateCompanionAdapter.h:38 | AggregateCompanionFunctionBase : Aggregate</title>
+<rect x="1686" y="370" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1686" y="377" width="4" height="40" rx="2" fill="#475569"/>
+<text x="1699" y="393" class="name">AggregateCompanionFunctionBase</text>
+<text x="1699" y="413" class="source">Exec · AggregateCompanionAdapter.h:38</text></a>
+<a xlink:href="../../bolt/exec/AggregateCompanionAdapter.h#L131"><title>bolt/exec/AggregateCompanionAdapter.h:131 | MergeFunction : AggregateCompanionFunctionBase</title>
+<rect x="1712" y="440" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1712" y="447" width="4" height="40" rx="2" fill="#475569"/>
+<text x="1725" y="463" class="name">MergeFunction</text>
+<text x="1725" y="483" class="source">Exec · AggregateCompanionAdapter.h:131</text></a>
+<a xlink:href="../../bolt/exec/AggregateCompanionAdapter.h#L160"><title>bolt/exec/AggregateCompanionAdapter.h:160 | MergeExtractFunction : MergeFunction</title>
+<rect x="1738" y="510" width="662" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1738" y="517" width="4" height="40" rx="2" fill="#475569"/>
+<text x="1751" y="533" class="name">MergeExtractFunction</text>
+<text x="1751" y="553" class="source">Exec · AggregateCompanionAdapter.h:160</text></a>
+<a xlink:href="../../bolt/exec/AggregateCompanionAdapter.h#L120"><title>bolt/exec/AggregateCompanionAdapter.h:120 | PartialFunction : AggregateCompanionFunctionBase</title>
+<rect x="1712" y="580" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1712" y="587" width="4" height="40" rx="2" fill="#475569"/>
+<text x="1725" y="603" class="name">PartialFunction</text>
+<text x="1725" y="623" class="source">Exec · AggregateCompanionAdapter.h:120</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/ApproxDistinctAggregate.cpp#L143"><title>bolt/functions/prestosql/aggregates/ApproxDistinctAggregate.cpp:143 | ApproxDistinctAggregate : exec::Aggregate</title>
+<rect x="1686" y="650" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1686" y="657" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="1699" y="673" class="name">ApproxDistinctAggregate</text>
+<text x="1699" y="693" class="source">Presto · ApproxDistinctAggregate.cpp:143</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/ApproxMostFrequentAggregate.cpp#L80"><title>bolt/functions/prestosql/aggregates/ApproxMostFrequentAggregate.cpp:80 | ApproxMostFrequentAggregate : exec::Aggregate</title>
+<rect x="1686" y="720" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1686" y="727" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="1699" y="743" class="name">ApproxMostFrequentAggregate</text>
+<text x="1699" y="763" class="source">Presto · ApproxMostFrequentAggregate.cpp:80</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/ApproxPercentileAggregate.h#L145"><title>bolt/functions/prestosql/aggregates/ApproxPercentileAggregate.h:145 | ApproxPercentileAggregate : exec::Aggregate</title>
+<rect x="1686" y="790" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1686" y="797" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="1699" y="813" class="name">ApproxPercentileAggregate</text>
+<text x="1699" y="833" class="source">Presto · ApproxPercentileAggregate.h:145</text></a>
+<a xlink:href="../../bolt/functions/sparksql/aggregates/BitmapConstructAggAggregate.cpp#L55"><title>bolt/functions/sparksql/aggregates/BitmapConstructAggAggregate.cpp:55 | BitmapConstructAggAggregate : exec::Aggregate</title>
+<rect x="1686" y="860" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1686" y="867" width="4" height="40" rx="2" fill="#c45b13"/>
+<text x="1699" y="883" class="name">BitmapConstructAggAggregate</text>
+<text x="1699" y="903" class="source">Spark · BitmapConstructAggAggregate.cpp:55</text></a>
+<a xlink:href="../../bolt/functions/sparksql/aggregates/BitmapOrAggAggregate.cpp#L64"><title>bolt/functions/sparksql/aggregates/BitmapOrAggAggregate.cpp:64 | BitmapOrAggAggregate : exec::Aggregate</title>
+<rect x="1686" y="930" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1686" y="937" width="4" height="40" rx="2" fill="#c45b13"/>
+<text x="1699" y="953" class="name">BitmapOrAggAggregate</text>
+<text x="1699" y="973" class="source">Spark · BitmapOrAggAggregate.cpp:64</text></a>
+<a xlink:href="../../bolt/functions/sparksql/aggregates/BloomFilterAggAggregate.cpp#L74"><title>bolt/functions/sparksql/aggregates/BloomFilterAggAggregate.cpp:74 | BloomFilterAggAggregate : exec::Aggregate</title>
+<rect x="1686" y="1000" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1686" y="1007" width="4" height="40" rx="2" fill="#c45b13"/>
+<text x="1699" y="1023" class="name">BloomFilterAggAggregate</text>
+<text x="1699" y="1043" class="source">Spark · BloomFilterAggAggregate.cpp:74</text></a>
+<a xlink:href="../../bolt/functions/lib/aggregates/CentralMomentsAggregatesBase.h#L225"><title>bolt/functions/lib/aggregates/CentralMomentsAggregatesBase.h:225 | CentralMomentsAggregatesBase : exec::Aggregate</title>
+<rect x="1686" y="1070" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1686" y="1077" width="4" height="40" rx="2" fill="#2563eb"/>
+<text x="1699" y="1093" class="name">CentralMomentsAggregatesBase</text>
+<text x="1699" y="1113" class="source">Shared · CentralMomentsAggregatesBase.h:225</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/ChecksumAggregate.cpp#L47"><title>bolt/functions/prestosql/aggregates/ChecksumAggregate.cpp:47 | ChecksumAggregate : exec::Aggregate</title>
+<rect x="1686" y="1140" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1686" y="1147" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="1699" y="1163" class="name">ChecksumAggregate</text>
+<text x="1699" y="1183" class="source">Presto · ChecksumAggregate.cpp:47</text></a>
+<a xlink:href="../../bolt/functions/colocate/client/ColocateAggregate.cpp#L33"><title>bolt/functions/colocate/client/ColocateAggregate.cpp:33 | ColocateAggregate : Aggregate</title>
+<rect x="1686" y="1210" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1686" y="1217" width="4" height="40" rx="2" fill="#9d387c"/>
+<text x="1699" y="1233" class="name">ColocateAggregate</text>
+<text x="1699" y="1253" class="source">Colocate · ColocateAggregate.cpp:33</text></a>
+<a xlink:href="../../bolt/functions/sparksql/aggregates/ModeAggregate.cpp#L294"><title>bolt/functions/sparksql/aggregates/ModeAggregate.cpp:294 | ComplexTypeModeAggregate : Aggregate</title>
+<rect x="1686" y="1280" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1686" y="1287" width="4" height="40" rx="2" fill="#c45b13"/>
+<text x="1699" y="1303" class="name">ComplexTypeModeAggregate</text>
+<text x="1699" y="1323" class="source">Spark · ModeAggregate.cpp:294</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/CountIfAggregate.cpp#L41"><title>bolt/functions/prestosql/aggregates/CountIfAggregate.cpp:41 | CountIfAggregate : exec::Aggregate</title>
+<rect x="1686" y="1350" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1686" y="1357" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="1699" y="1373" class="name">CountIfAggregate</text>
+<text x="1699" y="1393" class="source">Presto · CountIfAggregate.cpp:41</text></a>
+<a xlink:href="../../bolt/functions/lib/aggregates/CovarianceAggregatesBase.h#L233"><title>bolt/functions/lib/aggregates/CovarianceAggregatesBase.h:233 | CovarianceAggregate : exec::Aggregate</title>
+<rect x="1686" y="1420" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1686" y="1427" width="4" height="40" rx="2" fill="#2563eb"/>
+<text x="1699" y="1443" class="name">CovarianceAggregate</text>
+<text x="1699" y="1463" class="source">Shared · CovarianceAggregatesBase.h:233</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/CovarianceAggregates.cpp#L606"><title>bolt/functions/prestosql/aggregates/CovarianceAggregates.cpp:606 | CovarianceAggregate : exec::Aggregate</title>
+<rect x="1686" y="1490" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1686" y="1497" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="1699" y="1513" class="name">CovarianceAggregate</text>
+<text x="1699" y="1533" class="source">Presto · CovarianceAggregates.cpp:606</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/EntropyAggregates.cpp#L90"><title>bolt/functions/prestosql/aggregates/EntropyAggregates.cpp:90 | EntropyAggregate : exec::Aggregate</title>
+<rect x="1686" y="1560" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1686" y="1567" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="1699" y="1583" class="name">EntropyAggregate</text>
+<text x="1699" y="1603" class="source">Presto · EntropyAggregates.cpp:90</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/HiveUDAFPercentileAggregate.cpp#L186"><title>bolt/functions/prestosql/aggregates/HiveUDAFPercentileAggregate.cpp:186 | HiveUDAFPercentileAggregate : exec::Aggregate</title>
+<rect x="1686" y="1630" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1686" y="1637" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="1699" y="1653" class="name">HiveUDAFPercentileAggregate</text>
+<text x="1699" y="1673" class="source">Presto · HiveUDAFPercentileAggregate.cpp:186</text></a>
+<a xlink:href="../../bolt/functions/sparksql/aggregates/PercentileAggregate.h#L375"><title>bolt/functions/sparksql/aggregates/PercentileAggregate.h:375 | PercentileAggregate : exec::Aggregate</title>
+<rect x="1686" y="1700" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1686" y="1707" width="4" height="40" rx="2" fill="#c45b13"/>
+<text x="1699" y="1723" class="name">PercentileAggregate</text>
+<text x="1699" y="1743" class="source">Spark · PercentileAggregate.h:375</text></a>
+<a xlink:href="../../bolt/functions/sparksql/aggregates/PercentileApproxAggregate.h#L98"><title>bolt/functions/sparksql/aggregates/PercentileApproxAggregate.h:98 | PercentileApproxAggregateBase : exec::Aggregate</title>
+<rect x="1686" y="1770" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1686" y="1777" width="4" height="40" rx="2" fill="#c45b13"/>
+<text x="1699" y="1793" class="name">PercentileApproxAggregateBase</text>
+<text x="1699" y="1813" class="source">Spark · PercentileApproxAggregate.h:98</text></a>
+<a xlink:href="../../bolt/functions/sparksql/aggregates/PercentileApproxAggregate.h#L141"><title>bolt/functions/sparksql/aggregates/PercentileApproxAggregate.h:141 | PercentileApproxAggregate : PercentileApproxAggregateBase</title>
+<rect x="1712" y="1840" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1712" y="1847" width="4" height="40" rx="2" fill="#c45b13"/>
+<text x="1725" y="1863" class="name">PercentileApproxAggregate</text>
+<text x="1725" y="1883" class="source">Spark · PercentileApproxAggregate.h:141</text></a>
+<a xlink:href="../../bolt/python/Aggregate.h#L38"><title>bolt/python/Aggregate.h:38 | PythonAggregate : bytedance::bolt::exec::Aggregate</title>
+<rect x="1686" y="1910" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1686" y="1917" width="4" height="40" rx="2" fill="#9d387c"/>
+<text x="1699" y="1933" class="name">PythonAggregate</text>
+<text x="1699" y="1953" class="source">Python · Aggregate.h:38</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/ReduceAgg.cpp#L155"><title>bolt/functions/prestosql/aggregates/ReduceAgg.cpp:155 | ReduceAgg : exec::Aggregate</title>
+<rect x="1686" y="1980" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1686" y="1987" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="1699" y="2003" class="name">ReduceAgg</text>
+<text x="1699" y="2023" class="source">Presto · ReduceAgg.cpp:155</text></a>
+<a xlink:href="../../bolt/exec/SimpleAggregateAdapter.h#L57"><title>bolt/exec/SimpleAggregateAdapter.h:57 | SimpleAggregateAdapter : Aggregate</title>
+<rect x="1686" y="2050" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1686" y="2057" width="4" height="40" rx="2" fill="#475569"/>
+<text x="1699" y="2073" class="name">SimpleAggregateAdapter</text>
+<text x="1699" y="2093" class="source">Exec · SimpleAggregateAdapter.h:57</text></a>
+<a xlink:href="../../bolt/functions/sketches/SketchAggregateBase.h#L72"><title>bolt/functions/sketches/SketchAggregateBase.h:72 | SketchAggregateBase : exec::Aggregate</title>
+<rect x="1686" y="2120" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1686" y="2127" width="4" height="40" rx="2" fill="#7c3aed"/>
+<text x="1699" y="2143" class="name">SketchAggregateBase</text>
+<text x="1699" y="2163" class="source">Sketch · SketchAggregateBase.h:72</text></a>
+<a xlink:href="../../bolt/functions/sketches/SketchCPC.cpp#L109"><title>bolt/functions/sketches/SketchCPC.cpp:109 | SketchCPCAggregate : SketchAggregateBase</title>
+<rect x="1712" y="2190" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1712" y="2197" width="4" height="40" rx="2" fill="#7c3aed"/>
+<text x="1725" y="2213" class="name">SketchCPCAggregate</text>
+<text x="1725" y="2233" class="source">Sketch · SketchCPC.cpp:109</text></a>
+<a xlink:href="../../bolt/functions/sketches/SketchCPCSketch.cpp#L113"><title>bolt/functions/sketches/SketchCPCSketch.cpp:113 | SketchCPCAggregate : SketchAggregateBase</title>
+<rect x="1712" y="2260" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1712" y="2267" width="4" height="40" rx="2" fill="#7c3aed"/>
+<text x="1725" y="2283" class="name">SketchCPCAggregate</text>
+<text x="1725" y="2303" class="source">Sketch · SketchCPCSketch.cpp:113</text></a>
+<a xlink:href="../../bolt/functions/sketches/SketchFI.cpp#L138"><title>bolt/functions/sketches/SketchFI.cpp:138 | SketchFIAggregate : SketchAggregateBase</title>
+<rect x="1712" y="2330" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1712" y="2337" width="4" height="40" rx="2" fill="#7c3aed"/>
+<text x="1725" y="2353" class="name">SketchFIAggregate</text>
+<text x="1725" y="2373" class="source">Sketch · SketchFI.cpp:138</text></a>
+<a xlink:href="../../bolt/functions/sketches/SketchKLL.cpp#L142"><title>bolt/functions/sketches/SketchKLL.cpp:142 | SketchKLLAggregate : SketchAggregateBase</title>
+<rect x="1712" y="2400" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1712" y="2407" width="4" height="40" rx="2" fill="#7c3aed"/>
+<text x="1725" y="2423" class="name">SketchKLLAggregate</text>
+<text x="1725" y="2443" class="source">Sketch · SketchKLL.cpp:142</text></a>
+<a xlink:href="../../bolt/functions/sketches/SketchQuantiles.cpp#L127"><title>bolt/functions/sketches/SketchQuantiles.cpp:127 | SketchQuantilesAggregate : SketchAggregateBase</title>
+<rect x="1712" y="2470" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1712" y="2477" width="4" height="40" rx="2" fill="#7c3aed"/>
+<text x="1725" y="2493" class="name">SketchQuantilesAggregate</text>
+<text x="1725" y="2513" class="source">Sketch · SketchQuantiles.cpp:127</text></a>
+<a xlink:href="../../bolt/functions/sketches/SketchREQ.cpp#L124"><title>bolt/functions/sketches/SketchREQ.cpp:124 | SketchREQAggregate : SketchAggregateBase</title>
+<rect x="1712" y="2540" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1712" y="2547" width="4" height="40" rx="2" fill="#7c3aed"/>
+<text x="1725" y="2563" class="name">SketchREQAggregate</text>
+<text x="1725" y="2583" class="source">Sketch · SketchREQ.cpp:124</text></a>
+<a xlink:href="../../bolt/functions/sketches/SketchTheta.cpp#L132"><title>bolt/functions/sketches/SketchTheta.cpp:132 | SketchThetaAggregate : SketchAggregateBase</title>
+<rect x="1712" y="2610" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1712" y="2617" width="4" height="40" rx="2" fill="#7c3aed"/>
+<text x="1725" y="2633" class="name">SketchThetaAggregate</text>
+<text x="1725" y="2653" class="source">Sketch · SketchTheta.cpp:132</text></a>
+<a xlink:href="../../bolt/functions/sketches/SketchVarOpt.cpp#L184"><title>bolt/functions/sketches/SketchVarOpt.cpp:184 | SketchVarOptAggregate : SketchAggregateBase</title>
+<rect x="1712" y="2680" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1712" y="2687" width="4" height="40" rx="2" fill="#7c3aed"/>
+<text x="1725" y="2703" class="name">SketchVarOptAggregate</text>
+<text x="1725" y="2723" class="source">Sketch · SketchVarOpt.cpp:184</text></a>
+<a xlink:href="../../bolt/functions/sketches/SketchHLL.cpp#L162"><title>bolt/functions/sketches/SketchHLL.cpp:162 | SketchesHLLAggregate : SketchAggregateBase</title>
+<rect x="1712" y="2750" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1712" y="2757" width="4" height="40" rx="2" fill="#7c3aed"/>
+<text x="1725" y="2773" class="name">SketchesHLLAggregate</text>
+<text x="1725" y="2793" class="source">Sketch · SketchHLL.cpp:162</text></a>
+<a xlink:href="../../bolt/functions/sketches/SketchHLLSketch.cpp#L185"><title>bolt/functions/sketches/SketchHLLSketch.cpp:185 | SketchesHLLAggregate : SketchAggregateBase</title>
+<rect x="1712" y="2820" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1712" y="2827" width="4" height="40" rx="2" fill="#7c3aed"/>
+<text x="1725" y="2843" class="name">SketchesHLLAggregate</text>
+<text x="1725" y="2863" class="source">Sketch · SketchHLLSketch.cpp:185</text></a>
+<a xlink:href="../../bolt/functions/sketches/SketchKLLSketch.cpp#L152"><title>bolt/functions/sketches/SketchKLLSketch.cpp:152 | SketchesHLLAggregate : SketchAggregateBase</title>
+<rect x="1712" y="2890" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1712" y="2897" width="4" height="40" rx="2" fill="#7c3aed"/>
+<text x="1725" y="2913" class="name">SketchesHLLAggregate</text>
+<text x="1725" y="2933" class="source">Sketch · SketchKLLSketch.cpp:152</text></a>
+<a xlink:href="../../bolt/functions/sketches/SketchHLLUnion.cpp#L107"><title>bolt/functions/sketches/SketchHLLUnion.cpp:107 | SketchesHLLUnionAggregate : SketchAggregateBase</title>
+<rect x="1712" y="2960" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1712" y="2967" width="4" height="40" rx="2" fill="#7c3aed"/>
+<text x="1725" y="2983" class="name">SketchesHLLUnionAggregate</text>
+<text x="1725" y="3003" class="source">Sketch · SketchHLLUnion.cpp:107</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/VarianceAggregates.cpp#L177"><title>bolt/functions/prestosql/aggregates/VarianceAggregates.cpp:177 | VarianceAggregate : exec::Aggregate</title>
+<rect x="1686" y="3030" width="714" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1686" y="3037" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="1699" y="3053" class="name">VarianceAggregate</text>
+<text x="1699" y="3073" class="source">Presto · VarianceAggregates.cpp:177</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/VarianceAggregates.cpp#L496"><title>bolt/functions/prestosql/aggregates/VarianceAggregates.cpp:496 | StdDevPopAggregate : VarianceAggregate</title>
+<rect x="1712" y="3100" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1712" y="3107" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="1725" y="3123" class="name">StdDevPopAggregate</text>
+<text x="1725" y="3143" class="source">Presto · VarianceAggregates.cpp:496</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/VarianceAggregates.cpp#L508"><title>bolt/functions/prestosql/aggregates/VarianceAggregates.cpp:508 | StdDevSampAggregate : VarianceAggregate</title>
+<rect x="1712" y="3170" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1712" y="3177" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="1725" y="3193" class="name">StdDevSampAggregate</text>
+<text x="1725" y="3213" class="source">Presto · VarianceAggregates.cpp:508</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/VarianceAggregates.cpp#L521"><title>bolt/functions/prestosql/aggregates/VarianceAggregates.cpp:521 | VarPopAggregate : VarianceAggregate</title>
+<rect x="1712" y="3240" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1712" y="3247" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="1725" y="3263" class="name">VarPopAggregate</text>
+<text x="1725" y="3283" class="source">Presto · VarianceAggregates.cpp:521</text></a>
+<a xlink:href="../../bolt/functions/prestosql/aggregates/VarianceAggregates.cpp#L533"><title>bolt/functions/prestosql/aggregates/VarianceAggregates.cpp:533 | VarSampAggregate : VarianceAggregate</title>
+<rect x="1712" y="3310" width="688" height="54" rx="7" fill="#ffffff" stroke="#d7e0ed"/>
+<rect x="1712" y="3317" width="4" height="40" rx="2" fill="#087f74"/>
+<text x="1725" y="3333" class="name">VarSampAggregate</text>
+<text x="1725" y="3353" class="source">Presto · VarianceAggregates.cpp:533</text></a>
+<text x="40" y="3455" class="body">阅读提示</text>
+<text x="40" y="3487" class="body">• Presto / Spark 的 SumAggregate 是 SumAggregateBase 的别名，不增加继承层级。</text>
+<text x="40" y="3519" class="body">• Shared DecimalSumAggregate → DecimalAggregate；Spark DecimalSumAggregate → Aggregate（此处 → 表示“继承自”）。</text>
+<text x="40" y="3551" class="body">• SimpleAggregateAdapter&lt;FUNC&gt; 持有 FUNC；ModeAggregate、CollectListAggregate 等简单 UDAF 本身没有继承 Aggregate。</text>
+<text x="40" y="3583" class="body">• AggregateCompanionFunctionBase 另持有一个 Aggregate；PartialFunction / MergeFunction / MergeExtractFunction 嵌套于 AggregateCompanionAdapter。</text>
+<text x="40" y="3615" class="body">• 不包含测试类、累加器、类型别名或逐个模板实例。节点可打开源码；悬停显示完整路径。可编辑 UML 源文件：aggregate-inheritance.mmd。</text>
+</svg>

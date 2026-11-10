@@ -42,6 +42,7 @@ TEST_F(AggBasic, simpleAggregates) {
       makeNullableFlatVector<double>({2.5, std::nullopt, -1.5, 5.0}),
       makeNullableFlatVector<int128_t>(
           {base + 250, std::nullopt, base - 150, base + 500}, decimalType),
+      makeFlatVector<int64_t>({0, 0, 1, 1}),
   });
   const std::vector<std::string> aggregates = {
       "first(c0)",
@@ -55,27 +56,28 @@ TEST_F(AggBasic, simpleAggregates) {
       "count(c1)",
       "min(c1)"};
   const auto expected = makeRowVector({
-      makeFlatVector<double>({2.5}),
-      makeFlatVector<double>({6.0}),
-      makeFlatVector<double>({2.0}),
-      makeFlatVector<int64_t>({3}),
-      makeFlatVector<double>({-1.5}),
-      makeFlatVector<int128_t>({base + 250}, decimalType),
-      makeFlatVector<int128_t>({3 * base + 600}, DECIMAL(38, 2)),
-      makeFlatVector<int128_t>({base + 200}, decimalType),
-      makeFlatVector<int64_t>({3}),
-      makeFlatVector<int128_t>({base - 150}, decimalType),
+      makeFlatVector<int64_t>({0, 1}),
+      makeFlatVector<double>({2.5, -1.5}),
+      makeFlatVector<double>({2.5, 3.5}),
+      makeFlatVector<double>({2.5, 1.75}),
+      makeFlatVector<int64_t>({1, 2}),
+      makeFlatVector<double>({2.5, -1.5}),
+      makeFlatVector<int128_t>({base + 250, base - 150}, decimalType),
+      makeFlatVector<int128_t>({base + 250, 2 * base + 350}, DECIMAL(38, 2)),
+      makeFlatVector<int128_t>({base + 250, base + 175}, decimalType),
+      makeFlatVector<int64_t>({1, 2}),
+      makeFlatVector<int128_t>({base + 250, base - 150}, decimalType),
   });
 
   const auto single = PlanBuilder()
                           .values({input})
-                          .singleAggregation({}, aggregates)
+                          .singleAggregation({"c2"}, aggregates)
                           .planNode();
   AssertQueryBuilder(single).maxDrivers(1).assertResults(expected);
 
   const auto partialToFinal = PlanBuilder()
                                   .values({input})
-                                  .partialAggregation({}, aggregates)
+                                  .partialAggregation({"c2"}, aggregates)
                                   .finalAggregation()
                                   .planNode();
   AssertQueryBuilder(partialToFinal).maxDrivers(1).assertResults(expected);

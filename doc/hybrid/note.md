@@ -53,3 +53,13 @@ RowContainer 的 erase 主要出现在 窗口计算释放已消费的数据、pa
 | partial aggregation 被放弃 | 对不支持直接 toIntermediate() 的聚合，临时创建每行 accumulator，提取 intermediate 结果后调用 eraseRowsSkippingKeys() | bolt/exec/GroupingSet.cpp:2173 |
 | 哈希表显式删除条目 | 先删除 hash table 中的条目，再删除对应容器行；当前搜到的直接调用方是 HashTable 单测 | bolt/exec/HashTable.cpp:2346 |
 | clear() 或析构 | 当共享 string allocator、存在外部聚合内存，或启用 checkFree 时，先批量 eraseRows()，再整体释放 | bolt/exec/RowContainer.cpp:1134 |
+
+
+##
+```cpp
+template <typename TSum>
+struct SumCount {
+  TSum sum{0};
+  int64_t count{0};
+};
+```
